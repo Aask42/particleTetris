@@ -1,7 +1,7 @@
 class blockUnit
 {
     # Set a unique name for this block
-    $block_unit = "{0:d6}" -f $(Get-Random -Minimum 1 -Maximum 999999)
+    $block_unit = $("{0:d6}" -f $(Get-Random -Minimum 1 -Maximum 999999))
 
     # Default to inactive, because this piece by default should generate in an "on_deck" state
     $is_active = $false
@@ -14,7 +14,6 @@ class blockUnit
         "x" = (1..100)
         "y" = (1..20)
     }
-
 
     $center = $($this.max_dimensions.x[-1] / 2)
 
@@ -59,7 +58,27 @@ class blockUnit
         $this.draw_block_unit()
     }
 
-    [void] set_piece_types () {
+    set_block_unit_id ([int32] $block_unit_id) {
+        $this.write_log("Setting block_unit ID to $block_unit_id")
+        $this.block_unit = $block_unit_id
+    }
+
+    do_something ($particleFabricList, [string] $action) {
+
+        switch ($action) {
+            "rotate_left" {
+                $this.write_log("Attempting to rotate the piece left...")
+                $this.rotate_block_unit("left")
+            }
+            "rotate_right" {
+                $this.write_log("Attempting to rotate the piece left...")
+                $this.rotate_block_unit("right")
+            }
+        }
+
+    }
+
+    hidden [void] set_piece_types () {
         $this.piece_types = @{
             "I"         = @{                                        #######
                 "beauty"    = @{"x" = $this.center;"y" = 1}         #  I  #
@@ -129,7 +148,7 @@ class blockUnit
         }
     }
 
-    [System.Management.Automation.PSObject] write_log ($msg) {
+    hidden [System.Management.Automation.PSObject] write_log ($msg) {
         # Fetch the current time
         while(!(Test-Path $this.LogFolderPath)) {
             Write-Host("Creating new folder: $($this.LogFolderPath)...")
@@ -153,7 +172,7 @@ class blockUnit
         return $timestamp
     }
 
-    [System.Management.Automation.PSObject] get_timestamp () {
+    hidden [System.Management.Automation.PSObject] get_timestamp () {
         return Get-Date -UFormat '%s'
     }
 
@@ -161,7 +180,6 @@ class blockUnit
 
         # Create our dataset object from our dimensions
         $block_unit_particle_coordinates = New-Object 'switch[,]' $this.max_dimensions.x[-1],$this.max_dimensions.y[-1]
-        $shape = ""
         foreach($particle in $this.particle_dimensions.Keys){
             foreach($point in $this.particle_dimensions.$particle) {
                 $block_unit_particle_coordinates[$point.x,$point.y] = $true
@@ -193,7 +211,7 @@ class blockUnit
         $lines | % {Write-Host $_}
     }
 
-    [void] rotate_block_unit ($direction) {
+    hidden [void] rotate_block_unit ($direction) {
 
         # This is the orientation of the piece, max rotations determined by
         # angle of each rotation
@@ -211,7 +229,6 @@ class blockUnit
         # Translate each particle's rotation independently about the "truth" axis
 
         foreach($particle in $this.particle_dimensions.Keys -ne "truth"){
-            $temp_msg = $null
             foreach($point in $this.particle_dimensions.$particle) {
 
                 $x_truth = $this.particle_dimensions.truth.x
@@ -268,10 +285,14 @@ class blockUnit
 
 }
 
-function New-BlockUnit()
+function New-BlockUnit($block_unit_id = $null)
 {
     ## This function will return a new block_unit object
     $block_unit = New-Object blockUnit
+
+    if($null -ne $block_unit_id) {
+        $block_unit.set_block_unit_id($block_unit_id)
+    }
 
     return $block_unit
 }
