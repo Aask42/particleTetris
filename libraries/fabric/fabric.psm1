@@ -57,7 +57,7 @@ class particleFabric
     [void] tick () {
         # This method will progress the arrow of time
         $this.tick_count += 1
-        
+
     }
 }
 
@@ -67,4 +67,21 @@ function New-ParticleFabric()
     $particle_fabric = New-Object particleFabric
 
     return $particle_fabric
+}
+
+function Test-ParticleDrop() {
+    $fabric = New-ParticleFabric
+
+    $fabric.generate_new_block_unit()
+    $run = $true
+    while($run) {
+        if($fabric.fabric_block_units.'block_unit.0'.do_something("move_down") -eq 1) {
+            Clear-Host
+            $fabric.fabric_block_units.'block_unit.0'.draw_block_unit()
+            Start-Sleep -Milliseconds 500
+        } else {
+            $run = $false
+        }
+    }
+
 }

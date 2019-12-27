@@ -63,7 +63,7 @@ class blockUnit
         $this.block_unit = $block_unit_id
     }
 
-    do_something ($particleFabricList, [string] $action) {
+    [bool] do_something ([string] $action) {
 
         switch ($action) {
             "rotate_left" {
@@ -74,8 +74,13 @@ class blockUnit
                 $this.write_log("Attempting to rotate the piece left...")
                 $this.rotate_block_unit("right")
             }
+            "move_down" {
+                $this.write_log("Attempting to move one spot down...")
+                return $this.move_block_unit_down(1)
+            }
         }
 
+        return 1
     }
 
     hidden [void] set_piece_types () {
@@ -261,12 +266,33 @@ class blockUnit
         $this.draw_block_unit()
     }
 
+    [bool] move_block_unit_down ($number_of_spaces) {
+
+        # This will transform the block down one space
+
+        $this.write_log("Attempting to transform down one row")
+        foreach($particle in $this.particle_dimensions.Keys){
+            foreach($point in $this.particle_dimensions.$particle) {
+                $y_curr = $this.particle_dimensions.$particle.y
+                $y_new = $y_curr + $number_of_spaces
+
+                if($y_new -lt $this.max_dimensions.y[-1]) {
+                    $this.particle_dimensions.$particle.y = $y_new
+                } else {
+                    return 0
+                }
+            }
+        }
+
+        return 1
+    }
+
     [void] print_block_unit_dimensions () {
         foreach($particle in $this.particle_dimensions.Keys){
             $temp_msg = $null
             foreach($point in $this.particle_dimensions.$particle) {
                 foreach($axis in $point.Keys) {
-                    if($temp_msg -eq $null){
+                    if($null -eq $temp_msg){
                         $temp_msg = "{0,-10} {1,10}" -f "$particle", "$axis : $($point.$axis)"
                     } else {
                         $temp_msg = "$temp_msg | $axis : $($point.$axis)"
