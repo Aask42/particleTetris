@@ -66,8 +66,12 @@ class blockUnit
     [bool] do_something ([string] $action) {
         $status = 0
 
+        # Sort the pieces from left to right so they can be operated on in the correct direction
+
         switch ($action) {
             "rotate_left" {
+                $this.particle_dimensions = $this.particle_dimensions | Sort-Object -Property x
+
                 $this.write_log("Attempting to rotate $($this.block_unit) left...")
 
                 $this.rotate_block_unit("left")
@@ -75,6 +79,8 @@ class blockUnit
                 $status = 1
             }
             "rotate_right" {
+                $this.particle_dimensions = $this.particle_dimensions | Sort-Object -Property x
+
                 $this.write_log("Attempting to rotate $($this.block_unit) left...")
 
                 $this.rotate_block_unit("right")
@@ -96,6 +102,8 @@ class blockUnit
             "move_right" {
                 $this.write_log("Attempting to move $($this.block_unit) right...")
 
+                $this.particle_dimensions = $this.particle_dimensions | Sort-Object -Property x -Descending
+
                 if($this.test_move_block_unit_horizontal("right") -eq 1) {
                     $this.move_block_unit_horizontal("right")
                 } else {
@@ -107,6 +115,8 @@ class blockUnit
             }
             "move_left" {
                 $this.write_log("Attempting to move $($this.block_unit) one spot left...")
+
+                $this.particle_dimensions = $this.particle_dimensions | Sort-Object -Property x
 
                 if($this.test_move_block_unit_horizontal("left") -eq 1) {
                     $this.move_block_unit_horizontal("left")
@@ -223,10 +233,11 @@ class blockUnit
     [void] draw_block_unit () {
 
         # Create our dataset object from our dimensions
-        $block_unit_particle_coordinates = New-Object 'switch[,]' $this.max_dimensions.x[-1],$this.max_dimensions.y[-1]
+        $block_unit_particle_coordinates = New-Object 'switch[,]' $($this.max_dimensions.x.Count + 1),$($this.max_dimensions.y.Count + 1)
         foreach($particle in $this.particle_dimensions.Keys){
             foreach($point in $this.particle_dimensions.$particle) {
-                $block_unit_particle_coordinates[$point.x,$point.y] = $true
+                $block_unit_particle_coordinates[($point.x),($point.y)] = $true
+                Write-Host "Particle located at $($point.x),$($point.y)"
             }
         }
 
@@ -236,20 +247,25 @@ class blockUnit
         $lines = @()
 
         foreach ($y_coord in $this.max_dimensions.y) {
-            $y_coord = $y_coord - 1
-            $line = @("| ")
+            $y_coord = $y_coord
+            $line = @("|")
             foreach ($x_coord in $this.max_dimensions.x) {
-                $x_coord = $x_coord - 1
+                $x_coord = $x_coord
                 if ($block_unit_particle_coordinates[$x_coord,$y_coord] -eq $true) {
                     $line = "$line`x"
                 } else {
                     $line = "$line "
                 }
             }
-            $line = "$line |"
+            $line = "$line|"
 
             $lines += @($line)
         }
+
+        $x = $this.particle_dimensions.truth.x
+        $y = $this.particle_dimensions.truth.y
+
+        Write-Host "Piece centered at $x,$y"
 
         $lines | ForEach-Object {Write-Host $_}
     }
@@ -295,11 +311,17 @@ class blockUnit
                 if($direction -eq "right") {
                     $y_new = $y_new - $y_len
                     $x_new = $x_new + $x_len
-
                 }
                 if($direction -eq "left") {
                     $y_new = $y_new + $y_len
                     $x_new = $x_new - $x_len
+                }
+
+                if(!($x_new -in $this.max_dimensions.x)) {
+                    return 0
+                }
+                if(!($y_new -in $this.max_dimensions.y)) {
+                    return 0
                 }
 
                 $this.particle_dimensions.$particle.x = $x_new
@@ -315,8 +337,6 @@ class blockUnit
 
         # This is the orientation of the piece, max rotations determined by
         # angle of each rotation
-
-        $status = 1
 
         if($this.piece_orientation -eq $this.number_of_orientations) {
             $this.piece_orientation = 0
@@ -355,16 +375,16 @@ class blockUnit
                     $x_new = $x_new - $x_len
                 }
 
-                if(!($x_new -lt $this.max_dimensions.x[-1])) {
-                    $status = 0
+                if(!($x_new -in $this.max_dimensions.x)) {
+                    return 0
                 }
-                if(!($y_new -lt $this.max_dimensions.y[-1])) {
-                    $status = 0
+                if(!($y_new -in $this.max_dimensions.y)) {
+                    return 0
                 }
             }
         }
 
-        return $status
+        return 1
     }
 
     hidden [bool] move_block_unit_vertical ($direction) {
@@ -388,11 +408,8 @@ class blockUnit
                 $y_curr = $this.particle_dimensions.$particle.y
                 $y_new = $y_curr + $number_of_spaces
 
-                if($y_new -lt $this.max_dimensions.y[-1]) {
-                    $this.particle_dimensions.$particle.y = $y_new
-                } else {
-                    return 0
-                }
+                $this.particle_dimensions.$particle.y = $y_new
+
             }
         }
 
@@ -416,7 +433,7 @@ class blockUnit
                 $y_curr = $this.particle_dimensions.$particle.y
                 $y_new = $y_curr + $number_of_spaces
 
-                if(!($y_new -in $this.max_dimensions.y)) {
+                if(!($y_new -lt ($this.max_dimensions.y[-1] + 1))) {
                     return 0
                 }
             }

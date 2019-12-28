@@ -153,5 +153,6 @@ function Test-ParticleMovement() {
             $key = $null
         }
 
+        Start-Sleep -Milliseconds 1
     }
 }
