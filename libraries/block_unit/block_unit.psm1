@@ -11,7 +11,7 @@ class blockUnit
     # Set the max playground size
 
     $max_dimensions = @{
-        "x" = (1..100)
+        "x" = (1..10)
         "y" = (1..20)
     }
 
@@ -64,23 +64,62 @@ class blockUnit
     }
 
     [bool] do_something ([string] $action) {
+        $status = 0
 
         switch ($action) {
             "rotate_left" {
-                $this.write_log("Attempting to rotate the piece left...")
+                $this.write_log("Attempting to rotate $($this.block_unit) left...")
+
                 $this.rotate_block_unit("left")
+
+                $status = 1
             }
             "rotate_right" {
-                $this.write_log("Attempting to rotate the piece left...")
+                $this.write_log("Attempting to rotate $($this.block_unit) left...")
+
                 $this.rotate_block_unit("right")
+
+                $status = 1
             }
             "move_down" {
-                $this.write_log("Attempting to move one spot down...")
-                return $this.move_block_unit_down(1)
+                $this.write_log("Attempting to move $($this.block_unit) one spot down...")
+
+                if($this.test_move_block_unit_vertical("move_down") -eq 1) {
+                    $this.move_block_unit_vertical("move_down")
+                } else {
+                    $this.write_log("unable to move block_unit DOWN!!!")
+                    $status = 0
+                }
+
+                $status = 1
+            }
+            "move_right" {
+                $this.write_log("Attempting to move $($this.block_unit) right...")
+
+                if($this.test_move_block_unit_horizontal("right") -eq 1) {
+                    $this.move_block_unit_horizontal("right")
+                } else {
+                    $this.write_log("unable to move block_unit RIGHT!!!")
+                    $status = 0
+                }
+
+                $status = 1
+            }
+            "move_left" {
+                $this.write_log("Attempting to move $($this.block_unit) one spot left...")
+
+                if($this.test_move_block_unit_horizontal("left") -eq 1) {
+                    $this.move_block_unit_horizontal("left")
+                } else {
+                    $this.write_log("unable to move block_unit LEFT!!!")
+                    $status = 0
+                }
+
+                $status = 1
             }
         }
 
-        return 1
+        return $status
     }
 
     hidden [void] set_piece_types () {
@@ -153,7 +192,7 @@ class blockUnit
         }
     }
 
-    hidden [System.Management.Automation.PSObject] write_log ($msg) {
+    [System.Management.Automation.PSObject] write_log ($msg) {
         # Fetch the current time
         while(!(Test-Path $this.LogFolderPath)) {
             Write-Host("Creating new folder: $($this.LogFolderPath)...")
@@ -195,7 +234,6 @@ class blockUnit
 
         # Draw our piece
         $lines = @()
-        $shape = $this.piece_type[0]
 
         foreach ($y_coord in $this.max_dimensions.y) {
             $y_coord = $y_coord - 1
@@ -213,10 +251,16 @@ class blockUnit
             $lines += @($line)
         }
 
-        $lines | % {Write-Host $_}
+        $lines | ForEach-Object {Write-Host $_}
     }
 
-    hidden [void] rotate_block_unit ($direction) {
+    hidden [bool] rotate_block_unit ($direction) {
+
+        # Validate we can rotate the block
+        if(!($this.test_rotate_block_unit($direction) -eq 1)){
+            $this.write_log("Unable to move block vertically!!!")
+            return 0
+        }
 
         # This is the orientation of the piece, max rotations determined by
         # angle of each rotation
@@ -262,15 +306,83 @@ class blockUnit
                 $this.particle_dimensions.$particle.y = $y_new
             }
         }
-        Clear-Host
-        $this.draw_block_unit()
+
+        $this.write_log("Successfully rotated $($this.block_unit) to the $direction ^_^")
+        return 1
     }
 
-    [bool] move_block_unit_down ($number_of_spaces) {
+    hidden [bool] test_rotate_block_unit ($direction) {
 
-        # This will transform the block down one space
+        # This is the orientation of the piece, max rotations determined by
+        # angle of each rotation
 
-        $this.write_log("Attempting to transform down one row")
+        $status = 1
+
+        if($this.piece_orientation -eq $this.number_of_orientations) {
+            $this.piece_orientation = 0
+        } else {
+            $this.piece_orientation = $this.piece_orientation + 1
+        }
+
+        $this.write_log("Set block_unit orientation to: $($this.piece_orientation)")
+
+        $this.write_log("Attempting to transform to new possible dimension")
+
+        # Translate each particle's rotation independently about the "truth" axis
+
+        foreach($particle in $this.particle_dimensions.Keys -ne "truth"){
+            foreach($point in $this.particle_dimensions.$particle) {
+
+                $x_truth = $this.particle_dimensions.truth.x
+                $y_truth = $this.particle_dimensions.truth.y
+
+                $x_new = $x_truth
+                $y_new = $y_truth
+
+                $x_curr = $this.particle_dimensions.$particle.x
+                $y_curr = $this.particle_dimensions.$particle.y
+
+                $y_len = $x_curr - $x_truth
+                $x_len = $y_curr - $y_truth
+
+                if($direction -eq "right") {
+                    $y_new = $y_new - $y_len
+                    $x_new = $x_new + $x_len
+
+                }
+                if($direction -eq "left") {
+                    $y_new = $y_new + $y_len
+                    $x_new = $x_new - $x_len
+                }
+
+                if(!($x_new -lt $this.max_dimensions.x[-1])) {
+                    $status = 0
+                }
+                if(!($y_new -lt $this.max_dimensions.y[-1])) {
+                    $status = 0
+                }
+            }
+        }
+
+        return $status
+    }
+
+    hidden [bool] move_block_unit_vertical ($direction) {
+        # Test to see if we can move this block unit vertically
+
+        if(!($this.test_move_block_unit_vertical($direction)) -eq 1){
+            $this.write_log("Unable to move block vertically!!!")
+            return 0
+        }
+        $number_of_spaces = 1
+
+        if($direction -eq "move_up") {
+            $number_of_spaces = -1
+        }
+
+        # This will transform the block vertically, hardcoded to only allow DOWN
+
+        $this.write_log("Attempting to move $number_of_spaces vertically...")
         foreach($particle in $this.particle_dimensions.Keys){
             foreach($point in $this.particle_dimensions.$particle) {
                 $y_curr = $this.particle_dimensions.$particle.y
@@ -279,6 +391,90 @@ class blockUnit
                 if($y_new -lt $this.max_dimensions.y[-1]) {
                     $this.particle_dimensions.$particle.y = $y_new
                 } else {
+                    return 0
+                }
+            }
+        }
+
+        return 1
+    }
+
+    hidden [bool] test_move_block_unit_vertical ($direction) {
+
+        $number_of_spaces = 1
+
+        if($direction -eq "move_up") {
+            $number_of_spaces = -1
+        }
+
+        # This will transform the block vertically, hardcoded to only allow DOWN
+
+        $this.write_log("Checking to see if we can move $number_of_spaces space vertically...")
+
+        foreach($particle in $this.particle_dimensions.Keys){
+            foreach($point in $this.particle_dimensions.$particle) {
+                $y_curr = $this.particle_dimensions.$particle.y
+                $y_new = $y_curr + $number_of_spaces
+
+                if(!($y_new -in $this.max_dimensions.y)) {
+                    return 0
+                }
+            }
+        }
+
+        return 1
+    }
+
+
+    hidden [bool] move_block_unit_horizontal ([string] $direction) {
+
+        # Test to see if we can move this block unit horizontally
+        if(!($this.test_move_block_unit_horizontal($direction)) -eq 1){
+            $this.write_log("Unable to move block $direction!!!")
+            return 0
+        }
+
+        # This will transform the block horizontally
+        # Default direction of movement to right
+        $number_of_spaces = 1
+
+        # Check to see if we requested a direction other than default
+        if($direction -eq 'left') {
+            $number_of_spaces = -1
+        }
+
+        $this.write_log("Attempting to move $number_of_spaces space horizontally...")
+        foreach($particle in $this.particle_dimensions.Keys){
+
+            foreach($point in $this.particle_dimensions.$particle) {
+                $x_curr = $this.particle_dimensions.$particle.x
+                $x_new = $x_curr + $number_of_spaces
+
+                $this.particle_dimensions.$particle.x = $x_new
+            }
+        }
+
+        return 1
+    }
+
+    hidden [bool] test_move_block_unit_horizontal ([string] $direction) {
+
+        # This will transform the block horizontally
+        # Default direction of movement to right
+        $number_of_spaces = 1
+
+        # Check to see if we requested a direction other than default
+        if($direction -eq 'left') {
+            $number_of_spaces = -1
+        }
+
+        $this.write_log("Attempting to move $number_of_spaces space horizontally...")
+        foreach($particle in $this.particle_dimensions.Keys){
+            foreach($point in $this.particle_dimensions.$particle) {
+                $x_curr = $this.particle_dimensions.$particle.x
+                $x_new = $x_curr + $number_of_spaces
+
+                if(!($x_new -in $this.max_dimensions.x)) {
                     return 0
                 }
             }
