@@ -6,10 +6,8 @@ class blockUnit
     # Default to inactive, because this piece by default should generate in an "on_deck" state
     $is_active = $false
     $on_deck = $true
-    $is_active_history = @{}
 
     # Set the max playground size
-
     $max_dimensions = @{
         "x" = (1..10)
         "y" = (1..20)
@@ -18,16 +16,16 @@ class blockUnit
     $center = $($this.max_dimensions.x[-1] / 2)
 
     # Set allowed piece types
-    $piece_types = $null
+    $block_unit_types = $null
 
-    $particle_dimensions = @()
+    $particle_dimensions = $null
     $particle_roster = $(New-Object 'switch[,]' $($this.max_dimensions.x[-1] + 1),$($this.max_dimensions.y[-1] + 1))
 
     $piece_initial_shape = @()
-    [string] $piece_type = $null
+    [string] $block_unit_type = $null
 
     [int] $rotation_angle = 90 # This is the angle each piece rotates with a call of the rotate method
-    [int] $number_of_orientations = 360 / 90 # A circle has 360 degrees, this lets us know the max piece orientations possible
+    [int] $number_of_orientations = $(360 / $this.rotation_angle) # A circle has 360 degrees, this lets us know the max piece orientations possible
     [int] $piece_orientation = 0 # Max is dynamically calculated based off of the number of orientations possible
 
     # Set default log location and filename
@@ -41,22 +39,14 @@ class blockUnit
 
         # Set the allowed pieces and their size
 
-        $this.set_piece_types()
+        $this.set_block_unit_types()
 
         # Randomize piece generation
-        $pick_a_number = Get-Random -Minimum 0 -Maximum $($this.piece_types.Keys.Count - 1)
+        $pick_a_number = Get-Random -Minimum 0 -Maximum $($this.block_unit_types.Keys.Count - 1)
 
-        $this.piece_type = $(@($this.piece_types.Keys)[$pick_a_number])
+        $this.block_unit_type = $(@($this.block_unit_types.Keys)[$pick_a_number])
 
-        $this.write_log("Generated block_unit with the piece_type of $($this.piece_type) ^_^")
-
-        if( $this.is_in_particle_roster() ) {
-            $this.write_log("Unable to generate block_unit dimensions as there is another block_unit in the way!!!")
-        } else {
-            $this.particle_dimensions = $this.piece_types.$($this.piece_type)
-            $this.write_log("Generated block_unit default dimensions ^_^")
-            $this.print_block_unit_dimensions()
-        }
+        $this.write_log("Generated block_unit with the block_unit_type of $($this.block_unit_type) ^_^")
     }
 
     [bool] do_something ([string] $action) {
@@ -108,8 +98,8 @@ class blockUnit
         return $status
     }
 
-    hidden [void] set_piece_types () {
-        $this.piece_types = @{
+    hidden [void] set_block_unit_types () {
+        $this.block_unit_types = @{
             "I"         = @{                                        #######
                 "beauty"    = @{"x" = $this.center;"y" = 1}         #  I  #
                 "strange"   = @{"x" = $this.center;"y" = 2}         #  I  # # truth is the center
@@ -155,27 +145,28 @@ class blockUnit
         }
     }
 
-    [bool] active_check () {
-        if ($this.is_active) {
-            $this.write_log("block_unit: $($this.block_unit) is ACTIVE  ^_^")
-            return 1
-        }
-        $this.write_log("block_unit: $($this.block_unit) is NOT active!!!")
-        return 0
-    }
-
-    [void] toggle_activity_state () {
+    [bool] toggle_activity_state () {
         ## This function will toggle the activity state and also record the history of the activity state
-
+        $status = 0
         # Swap our state from it's current assignment
-        $this.is_active = [switch] !$this.is_active
+        $generate_dimensions = ($null -eq $this.particle_dimensions)
 
-        $time = $this.write_log("is_active toggled to $($this.is_active)")
-
-        # Keep track of state history
-        $this.is_active_history += @{
-            "$time" = "$($this.is_active.ToString())"
+        if ( $generate_dimensions ) {
+            $this.particle_dimensions = $this.block_unit_types.$($this.block_unit_type)
+            $this.write_log("Generated block_unit default dimensions for active block ^_^")
         }
+
+        if ( $this.is_in_particle_roster() -and !$this.is_active -and $generate_dimensions) {
+            # Can't toggle state if there's something already in the way
+            $this.particle_dimensions = $null
+            $this.write_log("Unable to toggle activity state due to other particles in the way")
+        } else {
+            $this.is_active = [switch] !$this.is_active
+            $this.write_log("is_active toggled to $($this.is_active)")
+            $status = 1
+        }
+
+        return $status
     }
 
     [System.Management.Automation.PSObject] write_log ($msg) {
@@ -209,9 +200,7 @@ class blockUnit
     hidden [bool] rotate_block_unit ($direction) {
 
         # Validate we can rotate the block and fetch the new coordinates
-        $new_coords = $this.test_rotate_block_unit($direction)
-
-        $this.particle_dimensions = $new_coords
+        $this.particle_dimensions = $this.test_rotate_block_unit($direction)
 
         $this.write_log("Successfully rotated $($this.block_unit) to the $direction ^_^")
 
@@ -221,10 +210,7 @@ class blockUnit
     hidden [System.Management.Automation.PSObject] test_rotate_block_unit ($direction) {
 
         # Squares not allowed, only cool blocks
-
-        if ( $this.piece_type -eq "Square" ) {
-            return $this.particle_dimensions
-        }
+        if ( $this.block_unit_type -eq "Square" ) { return $this.particle_dimensions }
 
         # This is the orientation of the piece, max rotations determined by
         # angle of each rotation
@@ -279,18 +265,10 @@ class blockUnit
                 $new_coords.$particle.y = $y_new
 
                 # Check to see if we're over the edge
-                if($x_new -gt $this.max_dimensions.x[-1]) {
-                    $x_edge -= 1
-                }
-                if($x_new -lt 1) {
-                    $x_edge += 1
-                }
-                if($y_new -gt $this.max_dimensions.y[-1]) {
-                    $y_edge -= 1
-                }
-                if($y_new -lt 1) {
-                    $y_edge += 1
-                }
+                if($x_new -gt $this.max_dimensions.x[-1]) { $x_edge -= 1 }
+                if($x_new -lt 1) { $x_edge += 1 }
+                if($y_new -gt $this.max_dimensions.y[-1]) { $y_edge -= 1 }
+                if($y_new -lt 1) { $y_edge += 1 }
             }
         }
 
@@ -311,75 +289,55 @@ class blockUnit
 
         # Validate we aren't going to intersect with another piece
         foreach ( $particle in $new_coords.Keys ) {
-            $coords = @{
-                "x" = $new_coords.x
-                "y" = $new_coords.x
-            }
-            if ( $this.coords_in_particle_roster($coords) ) {
-                return $this.particle_dimensions
-            }
+            $coords = @{ "x" = $new_coords.$particle.x;"y" = $new_coords.$particle.y }
 
+            if ( $this.coords_in_particle_roster($coords) ) { return $this.particle_dimensions }
         }
 
         return $new_coords
     }
 
     hidden [bool] move_block_unit_vertical ($direction) {
-        # Test to see if we can move this block unit vertically
-
-        if(!($this.test_move_block_unit_vertical($direction)) -eq 1){
-            $this.write_log("Unable to move block vertically!!!")
-            return 0
-        }
-        $number_of_spaces = 1
-
-        if($direction -eq "move_up") {
-            $number_of_spaces = -1
-        }
-
-        # This will transform the block vertically, hardcoded to only allow DOWN
-
-        $this.write_log("Attempting to move $number_of_spaces vertically...")
-        foreach($particle in $this.particle_dimensions.Keys){
-            foreach($point in $this.particle_dimensions.$particle) {
-                $y_curr = $this.particle_dimensions.$particle.y
-                $y_new = $y_curr + $number_of_spaces
-
-                $this.particle_dimensions.$particle.y = $y_new
-
-            }
-        }
+        # Try to move this block unit vertically
+        $this.particle_dimensions = $this.test_move_block_unit_vertical($direction)
 
         return 1
     }
 
-    hidden [bool] test_move_block_unit_vertical ($direction) {
+    hidden [System.Management.Automation.PSObject] test_move_block_unit_vertical ($direction) {
+
+        $new_particle_dimensions = @{}
 
         $number_of_spaces = 1
 
-        if($direction -eq "move_up") {
-            $number_of_spaces = -1
-        }
+        if($direction -eq "move_up") { $number_of_spaces = -1 }
 
-        # This will transform the block vertically, hardcoded to only allow DOWN
+        # This will transform the block vertically
 
         $this.write_log("Checking to see if we can move $number_of_spaces space vertically...")
 
         foreach($particle in $this.particle_dimensions.Keys){
-            foreach($point in $this.particle_dimensions.$particle) {
-                $y_curr = $this.particle_dimensions.$particle.y
-                $y_new = $y_curr + $number_of_spaces
+            $y_curr = $this.particle_dimensions.$particle.y
+            $x_curr = $this.particle_dimensions.$particle.x
 
-                if($y_new -lt 1) {
-                    return 0
-                }
-                if($y_new -gt $this.max_dimensions.y[-1]) {
-                    return 0
-                }
+            $y_new = $y_curr + $number_of_spaces
+
+            # Ensure we're within the bounds of our playground
+            if($y_new -lt 1) { return $this.particle_dimensions }
+            if($y_new -gt $this.max_dimensions.y[-1]) { return $this.particle_dimensions }
+
+            $coords = @{ "x"=$x_curr; "y"=$y_new }
+
+            # Validate no collissions with other block_units
+            if ( $this.coords_in_particle_roster($coords) ) {
+                return $this.particle_dimensions
             }
+
+            # Add to new particle_dimensions
+            $new_particle_dimensions += @{ "$particle" = $coords }
         }
 
-        return 1
+        return $new_particle_dimensions
     }
 
 
@@ -429,9 +387,15 @@ class blockUnit
         foreach($particle in $this.particle_dimensions.Keys){
             foreach($point in $this.particle_dimensions.$particle) {
                 $x_curr = $this.particle_dimensions.$particle.x
+                $y_curr = $this.particle_dimensions.$particle.y
+
                 $x_new = $x_curr + $number_of_spaces
 
                 if(!($x_new -in $this.max_dimensions.x)) {
+                    return 0
+                }
+                $coords = @{"x"=$x_new;"y"=$y_curr}
+                if ( $this.coords_in_particle_roster($coords) ) {
                     return 0
                 }
             }
@@ -458,12 +422,12 @@ class blockUnit
 
     [bool] is_in_particle_roster () {
         # Fetch the block_unit's initial particle location
-        foreach ( $particle in $this.piece_types.$($this.piece_type).Keys ) {
+        foreach ( $particle in $this.block_unit_types.$($this.block_unit_type).Keys ) {
 
-            $x = $this.piece_types.$($this.piece_type).$particle.x
-            $y = $this.piece_types.$($this.piece_type).$particle.y
+            $x = $this.block_unit_types.$($this.block_unit_type).$particle.x
+            $y = $this.block_unit_types.$($this.block_unit_type).$particle.y
 
-            if ( $this.particle_roster[$x,$y] ) {
+            if ( $this.particle_roster."$x,$y" ) {
                 $this.write_log("This block_unit could intersect with something in the roster!!!")
                 return $true
             }
@@ -478,7 +442,7 @@ class blockUnit
         $x = $coords.x
         $y = $coords.y
 
-        if ( $this.particle_roster[$x,$y] ) {
+        if ( $this.particle_roster."$x,$y" ) {
             $this.write_log("This block_unit could intersect with something in the roster!!!")
             return $true
         }
