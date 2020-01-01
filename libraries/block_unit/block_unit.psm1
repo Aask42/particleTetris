@@ -21,6 +21,8 @@ class blockUnit
     $particle_dimensions = $null
     $particle_roster = $(New-Object 'switch[,]' $($this.max_dimensions.x[-1] + 1),$($this.max_dimensions.y[-1] + 1))
 
+    $block_unit_successfully_did_something = $false
+
     $piece_initial_shape = @()
     [string] $block_unit_type = $null
 
@@ -52,6 +54,8 @@ class blockUnit
     [bool] do_something ([string] $action) {
 
         $status = 0
+
+        $this.block_unit_successfully_did_something = $false
 
         # Validate this is the active piece
 
@@ -272,6 +276,59 @@ class blockUnit
             }
         }
 
+
+
+        # Validate we aren't going to intersect with another piece
+        $collission_mod = @{}
+        $collission = $false
+
+        foreach ( $particle in $new_coords.Keys ) {
+            # Check to see if our current coords are inside of another block
+            $collission_mod += @{ "$particle" = @{"x"=0;"y"=0} }
+
+            if ( $this.coords_in_particle_roster(@{ "x" = $new_coords.$particle.x;"y" = $new_coords.$particle.y }) ) {
+                $collission = $true
+                # Can we bump back in any of our dimensions?
+                $bump_coord_mods = @(
+                    @{"x_mod" = 0;"y_mod" = -1}
+                    @{"x_mod" = 1;"y_mod" = 0}
+                    @{"x_mod" = 1;"y_mod" = -1}
+                    @{"x_mod" = 1;"y_mod" = 1}
+                    @{"x_mod" = 0;"y_mod" = 1}
+                    @{"x_mod" = -1;"y_mod" = 0}
+                    @{"x_mod" = -1;"y_mod" = 1}
+                    @{"x_mod" = -1;"y_mod" = -1}
+                )
+
+                $run = $true
+                foreach ( $mod in $bump_coord_mods ) {
+                    if ( $run ) {
+                        $x_mod_coords = $new_coords.$particle.x + $mod.x_mod
+                        $y_mod_coords = $new_coords.$particle.y + $mod.y_mod
+
+                        $mod_check = !$this.coords_in_particle_roster( @{ "x" = $x_mod_coords;"y" = $y_mod_coords } )
+                        if ( $mod_check ) {
+                            $collission_mod.$particle.x = $mod.x_mod
+                            $collission_mod.$particle.y = $mod.y_mod
+                            $run = $false
+                        }
+                    }
+                }
+            }
+        }
+
+        if ( $collission ) {
+
+            $x_mods = $collission_mod.Values.x -ne 0
+            $y_mods = $collission_mod.Values.y -ne 0
+
+            foreach ( $particle in $new_coords.Keys ) {
+                $new_coords.$particle.x = $($new_coords.$particle.x + $x_mods[0])
+                $new_coords.$particle.y = $($new_coords.$particle.y + $y_mods[0])
+            }
+
+        }
+
         # If we're over the edge, bump the piece one out
 
         if($x_edge -ne 0) {
@@ -280,6 +337,7 @@ class blockUnit
                 $new_coords.$particle.x = $new_coords.$particle.x + $x_edge
             }
         }
+
         if($y_edge -ne 0) {
             foreach($particle in $new_coords.Keys) {
                 $this.write_log("Moved $y_edge positions vertically to get off the edge ^_^")
@@ -287,12 +345,14 @@ class blockUnit
             }
         }
 
-        # Validate we aren't going to intersect with another piece
         foreach ( $particle in $new_coords.Keys ) {
-            $coords = @{ "x" = $new_coords.$particle.x;"y" = $new_coords.$particle.y }
-
-            if ( $this.coords_in_particle_roster($coords) ) { return $this.particle_dimensions }
+            if ( $this.coords_in_particle_roster( @{"x"=$new_coords.$particle.x;"y"=$new_coords.particle.y} ) ) {
+                Write-Host "Unable to rotate piece!"
+                return $this.particle_dimensions
+            }
         }
+        # If we have successfully passed all checks, set status of doing something successfully to true ^_^
+        $this.block_unit_successfully_did_something = $true
 
         return $new_coords
     }
@@ -337,51 +397,30 @@ class blockUnit
             $new_particle_dimensions += @{ "$particle" = $coords }
         }
 
+        $this.block_unit_successfully_did_something = $true
+
         return $new_particle_dimensions
     }
 
 
     hidden [bool] move_block_unit_horizontal ([string] $direction) {
 
-        # Test to see if we can move this block unit horizontally
-        if(!($this.test_move_block_unit_horizontal($direction)) -eq 1){
-            $this.write_log("Unable to move block $direction!!!")
-            return 0
-        }
-
-        # This will transform the block horizontally
-        # Default direction of movement to right
-        $number_of_spaces = 1
-
-        # Check to see if we requested a direction other than default
-        if($direction -eq 'left') {
-            $number_of_spaces = -1
-        }
-
-        $this.write_log("Attempting to move $number_of_spaces space horizontally...")
-        foreach($particle in $this.particle_dimensions.Keys){
-
-            foreach($point in $this.particle_dimensions.$particle) {
-                $x_curr = $this.particle_dimensions.$particle.x
-                $x_new = $x_curr + $number_of_spaces
-
-                $this.particle_dimensions.$particle.x = $x_new
-            }
-        }
+        # Try to move this block unit horizontally
+        $this.particle_dimensions = $this.test_move_block_unit_horizontal($direction)
 
         return 1
     }
 
-    hidden [bool] test_move_block_unit_horizontal ([string] $direction) {
+    hidden [System.Management.Automation.PSObject] test_move_block_unit_horizontal ([string] $direction) {
+
+        $new_particle_dimensions = @{}
 
         # This will transform the block horizontally
         # Default direction of movement to right
         $number_of_spaces = 1
 
         # Check to see if we requested a direction other than default
-        if($direction -eq 'left') {
-            $number_of_spaces = -1
-        }
+        if($direction -eq 'left') { $number_of_spaces = -1 }
 
         $this.write_log("Attempting to move $number_of_spaces space horizontally...")
         foreach($particle in $this.particle_dimensions.Keys){
@@ -391,17 +430,20 @@ class blockUnit
 
                 $x_new = $x_curr + $number_of_spaces
 
-                if(!($x_new -in $this.max_dimensions.x)) {
-                    return 0
-                }
+                if(!($x_new -in $this.max_dimensions.x)) { return $this.particle_dimensions }
                 $coords = @{"x"=$x_new;"y"=$y_curr}
                 if ( $this.coords_in_particle_roster($coords) ) {
-                    return 0
+                    return $this.particle_dimensions
                 }
+
+                # Add to new particle_dimensions
+                $new_particle_dimensions += @{ "$particle" = $coords }
             }
         }
 
-        return 1
+        $this.block_unit_successfully_did_something = $true
+
+        return $new_particle_dimensions
     }
 
     [void] print_block_unit_dimensions () {
@@ -449,7 +491,6 @@ class blockUnit
 
         return $false
     }
-
 }
 
 function New-BlockUnit($block_unit_id = $null)

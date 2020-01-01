@@ -5,12 +5,14 @@ class particleFabric
     $fabric_block_units = @{}
 
     [int] $block_unit_id_counter = 0
+    [int] $current_block_unit = 0
 
     [int64] $tick_count = 0
 
     $particle_roster = @{}
     $active_particle_roster = @{}
 
+    $current_time = 0
 
     # Set default log location and filename
     $LogFolderPath = "$PSScriptRoot\logs"
@@ -48,6 +50,8 @@ class particleFabric
         $this.update_particle_roster()
 
         $this.block_unit_id_counter += 1
+
+        Write-Host "`nGenerated new block_unit on-deck ^_^"
 
         return $block_unit_id
     }
@@ -96,7 +100,7 @@ class particleFabric
         foreach($particle in $block_unit.particle_dimensions.Keys){
             foreach($point in $block_unit.particle_dimensions.$particle) {
                 $block_unit_particle_coordinates[($point.x),($point.y)] = $true
-                $this.write_log("Particle located at $($point.x),$($point.y)")
+                $this.current_time = $this.write_log("Particle located at $($point.x),$($point.y)")
             }
         }
 
@@ -142,12 +146,13 @@ class particleFabric
 
         $this.particle_roster = $temp_particle_roster
 
-        $this.write_log("Updated particle roster ^_^")
+        $this.current_time = $this.write_log("Updated particle roster ^_^")
     }
 
     [void] draw_particle_roster () {
 
         # Build the full particle roster to display
+        [Console]::SetBufferSize(512,512)
 
         # Fetch the depth of the x dimension, and add one since our grid is actually starting @ position one,one
         $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 1)
@@ -175,7 +180,7 @@ class particleFabric
         }
 
         # Build the output lines based on the table of particle locations
-        $lines = @()
+        $lines = ""
 
         # Build the lines we want to display
         foreach ($y_coord in $this.fabric_block_units.'block_unit.0'.max_dimensions.y) {
@@ -191,57 +196,76 @@ class particleFabric
                 }
 
                 # Add a piece symbol. Everyone loves piece.
-
                 $line = "$line$($piece_symbol)"
             }
-            # Add our perimiter
-            $line = "|$line|"
-
             # Add it to the list of lines
-            $lines += @($line)
+            $lines = "$lines`n|$line|"
         }
 
         # Display the lines
-        $lines | ForEach-Object {Write-Host $_}
+        [Console]::Write($lines)
     }
+    [void] swap_active_block () {
 
-    [void] display_particle_roster () {
-        Add-Type -assembly System.Windows.Forms
-        $main_form = New-Object System.Windows.Forms.Form
-        $main_form.Text ='particleTetris'
+        if ( $this.fabric_block_units.Count -gt 1 ) {
 
-        $main_form.Width = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 1) * 25
+            $block_unit_id = "block_unit.$($this.current_block_unit)"
 
-        $main_form.Height = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 1) * 25
+            [int] $temp_current_block_unit = $this.current_block_unit + 1
 
-        $main_form.AutoSize = $true
-
-
-
-        foreach ( $block_unit in $this.fabric_block_units.Keys ) {
-            foreach ( $particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys) {
-                $block_object = $this.fabric_block_units.$block_unit.particle_dimensions.$particle
-
-                $box = New-Object System.Windows.Forms.CheckBox
-
-                $box.Location = New-Object System.Drawing.Size($($block_object.x  * 15),$($block_object.y * 15))
-
-                $box.Size = New-Object System.Drawing.Size(20,20)
-
-                $box.AutoSize = $true
-
-                $main_form.Controls.Add($box)
-                #$Label = New-Object System.Windows.Forms.Label
-#
-                #$Label.Text = "Particle Tetris"
-#
-                #$Label.Location  = New-Object System.Drawing.Point($block_object.x,$block_object.y)
-
-                #$main_form.Controls.Add($Label)
+            if( $temp_current_block_unit -gt ($this.fabric_block_units.Count - 1) ) {
+                $temp_current_block_unit = 0
             }
 
+            $temp_block_unit_id = "block_unit.$temp_current_block_unit"
+
+            $this.update_particle_roster()
+
+            $full_roster = $this.particle_roster
+
+            foreach($particle in $this.fabric_block_units.$block_unit_id.particle_dimensions.Keys){
+                foreach ( $point in $this.fabric_block_units.$block_unit_id.particle_dimensions.$particle ) {
+                    if ( !$full_roster."$($point.x),$($point.y)" ) {
+                        $full_roster += @{
+                            "$($point.x),$($point.y)" = "$($this.fabric_block_units.$block_unit_id.block_unit_type)"
+                        }
+                    }
+                }
+            }
+
+            $this.fabric_block_units.$temp_block_unit_id.particle_roster = $full_roster
+
+            if(!($this.fabric_block_units.$temp_block_unit_id.is_active)) {
+                $active_block_unit = $($this.fabric_block_units.Keys | Where-Object { $this.fabric_block_units.$_.is_active})
+                $toggle = $this.fabric_block_units.$temp_block_unit_id.toggle_activity_state()
+                if ( ($null -ne $active_block_unit) -and $toggle ) {
+
+                    # Deactivate any blocks in motion only after we've toggled another on successfully
+
+                    $this.fabric_block_units.$active_block_unit.toggle_activity_state()
+
+                    $this.write_log("Successfully added piece to the board from on_deck!")
+
+                    $this.fabric_block_units.$active_block_unit.particle_roster = $this.particle_roster
+
+                    $this.update_particle_roster()
+
+                    $this.fabric_block_units.$temp_block_unit_id.particle_roster = $this.particle_roster
+
+                    $this.current_block_unit = $temp_current_block_unit
+
+                    Clear-Host
+
+                    Write-Host("`nSuccessfully swapped active piece")
+
+                    $this.draw_particle_roster()
+
+                } else {
+                    Write-Host("`nUnable to add piece to board from on-deck...")
+                    $this.draw_particle_roster()
+                }
+            }
         }
-        Start-Job -ArgumentList $main_form.ShowDialog() -ScriptBlock {Invoke-Expression $args[0]}
     }
 }
 
@@ -293,49 +317,49 @@ function Test-ParticleMovement() {
             'LeftArrow' {
                 $msg = "LEFT key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "move_left"
             }
             # Up key
             'UpArrow' {
                 $msg = "UP key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "move_up"
             }
             # Right key
             'RightArrow' {
                 $msg = "RIGHT key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "move_right"
             }
             # Down key
             'DownArrow' {
                 $msg = "DOWN key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "move_down"
             }
             # Up key
             'UpArrow' {
                 $msg = "UP key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "move_up"
             }
             # X key
             'X' {
                 $msg = "X key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "rotate_right"
             }
             # Z key
             'Z' {
                 $msg = "Z key was pressed!"
                 Write-Host $msg
-                $fabric.write_log("$msg")
+                $fabric.current_time = $fabric.write_log("$msg")
                 $action = "rotate_left"
             }
         }
@@ -373,143 +397,83 @@ function Test-ParticleStacking() {
         # Check to see if a key was pressed
         $action = $null
 
-        $key = [System.Console]::ReadKey()
+        # If the key is not currently being held, detect key press
+        if ( ([console]::KeyAvailable) ) {
 
-        switch($key.Key) {
-            # Left key
-            'LeftArrow' {
-                $msg = "LEFT key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "move_left"
-            }
-            # Up key
-            'UpArrow' {
-                $msg = "UP key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "move_up"
-            }
-            # Right key
-            'RightArrow' {
-                $msg = "RIGHT key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "move_right"
-            }
-            # Down key
-            'DownArrow' {
-                $msg = "DOWN key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "move_down"
-            }
-            # Up key
-            'UpArrow' {
-                $msg = "UP key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "move_up"
-            }
-            # X key
-            'X' {
-                $msg = "X key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "rotate_right"
-            }
-            # Z key
-            'Z' {
-                $msg = "Z key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $action = "rotate_left"
-            }
-            'N' {
-                $msg = "N key was pressed!"
-                Write-Host $msg
-                $fabric.write_log("$msg")
-                $fabric.generate_new_block_unit()
-            }
-            "S" {
-                if ( $fabric.fabric_block_units.Count -gt 1 ) {
+            $key = [System.Console]::ReadKey()
+            [System.Console]::Clear()
 
-                    [int] $temp_current_block_unit = $current_block_unit + 1
-
-                    if( $temp_current_block_unit -gt ($fabric.fabric_block_units.Count - 1) ) {
-                        $temp_current_block_unit = 0
-                    }
-
-                    $temp_block_unit_id = "block_unit.$temp_current_block_unit"
-
-                    $fabric.update_particle_roster()
-
-                    $full_roster = $fabric.particle_roster
-
-                    foreach($particle in $fabric.fabric_block_units.$block_unit_id.particle_dimensions.Keys){
-                        foreach ( $point in $fabric.fabric_block_units.$block_unit_id.particle_dimensions.$particle ) {
-                            $full_roster += @{
-                                "$($point.x),$($point.y)" = "$($fabric.fabric_block_units.$block_unit_id.block_unit_type)"
-                            }
-                        }
-                    }
-
-                    $fabric.fabric_block_units.$temp_block_unit_id.particle_roster = $full_roster
-
-                    if(!($fabric.fabric_block_units.$temp_block_unit_id.is_active)) {
-                        $active_block_unit = $($fabric.fabric_block_units.Keys | Where-Object { $fabric.fabric_block_units.$_.is_active})
-                        $toggle = $fabric.fabric_block_units.$temp_block_unit_id.toggle_activity_state()
-                        if ( ($null -ne $active_block_unit) -and $toggle ) {
-
-                            # Deactivate any blocks in motion only after we've toggled another on successfully
-
-                            $fabric.fabric_block_units.$active_block_unit.toggle_activity_state()
-
-                            Write-Host "Successfully added piece to the board from on_deck!"
-
-                            $fabric.fabric_block_units.$active_block_unit.particle_roster = $fabric.particle_roster
-
-                            $fabric.update_particle_roster()
-
-                            $fabric.fabric_block_units.$temp_block_unit_id.particle_roster = $fabric.particle_roster
-
-                            $current_block_unit = $temp_current_block_unit
-
-                            Clear-Host
-
-                            $fabric.draw_particle_roster()
-                        } else {
-                            Write-Host "Unable to add piece to board from on-deck..."
-                        }
-                    }
+            switch($key.Key) {
+                # Left key
+                'LeftArrow' {
+                    $fabric.current_time = $fabric.write_log("LEFT key was pressed!")
+                    $action = "move_left"
+                }
+                # Up key
+                'UpArrow' {
+                    $fabric.current_time = $fabric.write_log("UP key was pressed!")
+                    $action = "move_up"
+                }
+                # Right key
+                'RightArrow' {
+                    $fabric.current_time = $fabric.write_log("RIGHT key was pressed!")
+                    $action = "move_right"
+                }
+                # Down key
+                'DownArrow' {
+                    $fabric.current_time = $fabric.write_log("DOWN key was pressed!")
+                    $action = "move_down"
+                }
+                # Up key
+                'UpArrow' {
+                    $fabric.current_time = $fabric.write_log("UP key was pressed!")
+                    $action = "move_up"
+                }
+                # X key
+                'X' {
+                    $fabric.current_time = $fabric.write_log("X key was pressed!")
+                    $action = "rotate_right"
+                }
+                # Z key
+                'Z' {
+                    $fabric.current_time = $fabric.write_log("Z key was pressed!")
+                    $action = "rotate_left"
+                }
+                'N' {
+                    $fabric.current_time = $fabric.write_log("N key was pressed!")
+                    $fabric.generate_new_block_unit()
+                    $fabric.draw_particle_roster()
+                }
+                "S" {
+                    $fabric.swap_active_block()
+                }
+                'Escape' {
+                    $run = $false
                 }
             }
-            'Escape' {
-                $run = $false
+
+            # We need to do something after setting the sibling_block_units variable
+            if($null -ne $action) {
+
+                # $block_unit_id = $($fabric.fabric_block_units.Keys | Where-Object { $fabric.fabric_block_units.$_.is_active})
+
+                $block_unit_id = "block_unit.$($fabric.current_block_unit)"
+
+                $fabric.update_particle_roster()
+
+                $fabric.fabric_block_units.$block_unit_id.particle_roster = $fabric.particle_roster
+
+                $fabric.fabric_block_units.$block_unit_id.do_something($action)
+
+                $fabric.draw_particle_roster()
+                # $fabric.fabric_block_units.$block_unit_id.print_block_unit_dimensions()
+
+                $Host.UI.RawUI.FlushInputBuffer()
             }
+
+            Start-Sleep -Milliseconds 5
         }
 
-        # We need to do something after setting the sibling_block_units variable
-        if($null -ne $action) {
-
-            # $block_unit_id = $($fabric.fabric_block_units.Keys | Where-Object { $fabric.fabric_block_units.$_.is_active})
-
-            $block_unit_id = "block_unit.$current_block_unit"
-
-            $fabric.update_particle_roster()
-
-            $fabric.fabric_block_units.$block_unit_id.particle_roster = $fabric.particle_roster
-
-            $fabric.fabric_block_units.$block_unit_id.do_something($action)
-
-            Clear-Host
-
-            $fabric.draw_particle_roster()
-
-            $key = $null
-        }
-
-        # Start-Sleep -Milliseconds 1
     }
     return $fabric
 }
