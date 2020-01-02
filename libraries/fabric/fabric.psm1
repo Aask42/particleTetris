@@ -246,13 +246,11 @@ class particleFabric
 
                     $this.write_log("Successfully added piece to the board from on_deck!")
 
-                    $this.fabric_block_units.$active_block_unit.particle_roster = $this.particle_roster
+                    $this.current_block_unit = $temp_current_block_unit
 
                     $this.update_particle_roster()
 
                     $this.fabric_block_units.$temp_block_unit_id.particle_roster = $this.particle_roster
-
-                    $this.current_block_unit = $temp_current_block_unit
 
                     Clear-Host
 
@@ -432,12 +430,12 @@ function Test-ParticleStacking() {
                 # X key
                 'X' {
                     $fabric.current_time = $fabric.write_log("X key was pressed!")
-                    $action = "rotate_right"
+                    $action = "rotate_left"
                 }
                 # Z key
                 'Z' {
                     $fabric.current_time = $fabric.write_log("Z key was pressed!")
-                    $action = "rotate_left"
+                    $action = "rotate_right"
                 }
                 'N' {
                     $fabric.current_time = $fabric.write_log("N key was pressed!")
@@ -459,19 +457,17 @@ function Test-ParticleStacking() {
 
                 $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
-                $fabric.update_particle_roster()
-
-                $fabric.fabric_block_units.$block_unit_id.particle_roster = $fabric.particle_roster
-
                 $fabric.fabric_block_units.$block_unit_id.do_something($action)
+
+                $fabric.update_particle_roster()
 
                 $fabric.draw_particle_roster()
                 # $fabric.fabric_block_units.$block_unit_id.print_block_unit_dimensions()
-
                 $Host.UI.RawUI.FlushInputBuffer()
             }
 
-            Start-Sleep -Milliseconds 5
+
+            #Start-Sleep -Milliseconds 5
         }
 
     }
