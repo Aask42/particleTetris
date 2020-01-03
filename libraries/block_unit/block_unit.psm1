@@ -225,99 +225,122 @@ class blockUnit
 
         # This is the orientation of the piece, max rotations determined by
         # angle of each rotation
-
-        $new_coords = $this.particle_dimensions
-
         if($this.piece_orientation -eq $this.number_of_orientations) {
             $this.piece_orientation = 0
         } else {
             $this.piece_orientation = $this.piece_orientation + 1
         }
-
+        
         $this.write_log("Set block_unit orientation to: $($this.piece_orientation)")
-
+        
         $this.write_log("Attempting to transform to new possible dimension")
-
+        
         # Translate each particle's rotation independently about the "truth" axis
+        $new_coords = $this.particle_dimensions
+        $old_coords = $this.particle_dimensions
+        $x_mod = $null
+        $y_mod = $null
+        $x_collision = $false
+        $y_collision = $false
+        
+        $collision = $false
 
         foreach($particle in $new_coords.Keys -ne "truth"){
             foreach($point in $new_coords.$particle) {
 
-                $x_truth = $new_coords.truth.x
-                $y_truth = $new_coords.truth.y
-
-                $x_new = $x_truth
-                $y_new = $y_truth
-
-                $y_len = $new_coords.$particle.x - $x_truth
-                $x_len = $new_coords.$particle.y - $y_truth
+                $y_len = $old_coords.$particle.x - $old_coords.truth.x
+                $x_len = $old_coords.$particle.y - $old_coords.truth.y
 
                 if($direction -eq "right") {
-                    $y_new = $y_new - $y_len
-                    $x_new = $x_new + $x_len
+                    $x_mod = $x_len
+                    $y_mod = -$y_len
 
                 }
                 if($direction -eq "left") {
-                    $y_new = $y_new + $y_len
-                    $x_new = $x_new - $x_len
+                    $x_mod = -$x_len
+                    $y_mod = $y_len
                 }
-                $new_coords.$particle.x = $x_new
-                $new_coords.$particle.y = $y_new
-            }
-        }
-
-        $collision = $false
-        foreach($particle in $new_coords.Keys){
-            foreach($point in $new_coords.$particle) {
+                
+                $new_coords.$particle.x = $old_coords.truth.x + $x_mod
+                $new_coords.$particle.y = $old_coords.truth.y + $y_mod
+                
                 if ( $this.coords_in_particle_roster($point) ) {
                     $collision = $true
                 }
             }
         }
 
-        $temp_new_coords = $new_coords
-
         if ( $collision ) {
-            $collision = $false
+            $temp_new_coords = $new_coords
+            foreach($particle in $temp_new_coords.Keys){
+    
+                $temp_new_coords.$particle.x = $new_coords.$particle.x
+                $temp_new_coords.$particle.y = $new_coords.$particle.y + 1
 
-            $bump_coord_mods = @(
-                @{"x_mod" = 1;"y_mod" = 0}
-                @{"x_mod" = 0;"y_mod" = -1}
-                @{"x_mod" = 1;"y_mod" = -1}
-                @{"x_mod" = 1;"y_mod" = 1}
-                @{"x_mod" = -1;"y_mod" = 1}
-                @{"x_mod" = -1;"y_mod" = -1}
-                @{"x_mod" = 0;"y_mod" = 1}
-                @{"x_mod" = -1;"y_mod" = 0}
-            )
-            foreach ( $mod in $bump_coord_mods ) {
-                $temp_new_coords = $new_coords
-                foreach ( $particle in $new_coords.Keys ) {
-                    $y_len = $new_coords.$particle.x - $new_coords.truth.x
-                    $x_len = $new_coords.$particle.y - $new_coords.truth.y
-
-                    $temp_new_coords.$particle.x = $new_coords.$particle.x + $mod.x_mod
-                    $temp_new_coords.$particle.y = $new_coords.$particle.y + $mod.y_mod
-                }
-
-                foreach ( $particle in $temp_new_coords.Keys) {
-                    $coords = @{"x"=$temp_new_coords.$particle.x;"y"=$temp_new_coords.$particle.y}
-                    if ( $this.coords_in_particle_roster($coords)) {
-                        $collision = $true
-                    }
+                if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
+                    $y_collision = $true
                 }
             }
+            
+            if ( $y_collision ) {
+                $y_collision = $false
+                $temp_new_coords = $new_coords
+                foreach($particle in $temp_new_coords.Keys){
+
+                    $temp_new_coords.$particle.x = $new_coords.$particle.x
+                    $temp_new_coords.$particle.y = $new_coords.$particle.y - 1
+    
+                    if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
+                        $y_collision = $true
+                    }
+                }
+            } else {
+                $new_coords = $temp_new_coords
+            }
+            
+            if ( $y_collision ) {
+                $temp_new_coords = $new_coords
+                foreach($particle in $temp_new_coords.Keys){
+                    $y_len = $temp_new_coords.$particle.y - $temp_new_coords.truth.y
+                    $x_len = $temp_new_coords.$particle.x - $temp_new_coords.truth.x
+    
+                    $temp_new_coords.$particle.x = $new_coords.$particle.x + 1
+                    $temp_new_coords.$particle.y = $new_coords.$particle.y 
+    
+                    if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
+                        $x_collision = $true
+                    }
+                }
+
+                if ( $x_collision ) {
+                    $x_collision = $false
+                    $temp_new_coords = $new_coords
+
+                    foreach($particle in $temp_new_coords.Keys){
+                        $y_len = $temp_new_coords.$particle.x - $temp_new_coords.truth.x
+                        $x_len = $temp_new_coords.$particle.y - $temp_new_coords.truth.y
+        
+                        $temp_new_coords.$particle.x = $new_coords.$particle.x - 1
+                        $temp_new_coords.$particle.y = $new_coords.$particle.y
+        
+                        if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
+                            $x_collision = $true
+                        }
+                    }
+                } else {
+                    $new_coords = $temp_new_coords
+                }
+                
+            } else {
+                $new_coords = $temp_new_coords
+            }
         }
-
-        if ( $collision ) {
-            return $this.particle_dimensions
-        } else {
-            $new_coords = $temp_new_coords
+        
+        if ( !$x_collision ) {
+            # If we have successfully passed all checks, set status of doing something successfully to true ^_^
+            $this.block_unit_successfully_did_something = $true
         }
-
-        # If we have successfully passed all checks, set status of doing something successfully to true ^_^
-        $this.block_unit_successfully_did_something = $true
-
+       
         return $new_coords
     }
 
@@ -448,7 +471,7 @@ class blockUnit
         $x = $coords.x
         $y = $coords.y
 
-        if ( $this.particle_roster[$x,$y] -ne $null ) {
+        if ( $this.particle_roster[$x,$y] -ne $false ) {
             $this.write_log("This block_unit could intersect with something in the roster!!!")
             return $true
         }

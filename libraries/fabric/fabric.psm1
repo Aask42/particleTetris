@@ -9,7 +9,7 @@ class particleFabric
 
     [int64] $tick_count = 0
 
-    $particle_roster = @{}
+    $particle_roster = $null
 
     $full_particle_roster = $null
     $full_particle_roster_colors = $null
@@ -45,14 +45,14 @@ class particleFabric
 
         $block_unit_id = "block_unit.$($new_block.block_unit)"
 
-        $new_block.particle_roster = $this.particle_roster
-
         $this.fabric_block_units += @{
             "$block_unit_id" = $new_block
         }
-
+        
         # Ensure this particle doesn't get the full roster until its siblings have been added
         $this.update_particle_roster()
+
+        $this.fabric_block_units.$block_unit_id.particle_roster = $this.inactive_particle_roster
 
         $this.block_unit_id_counter += 1
 
@@ -132,42 +132,27 @@ class particleFabric
     }
 
     [void] update_particle_roster () {
-        # Refresh our table of block_units
-        $temp_particle_roster = @{}
-
-        # Add all of our block units to the table
-        foreach ( $block_unit in $this.fabric_block_units.Keys | Where-Object { !($this.fabric_block_units.$_.is_active)}) {
-
-            $block_unit_object = $this.fabric_block_units.$block_unit
-
-            foreach($particle in $block_unit_object.particle_dimensions.Keys){
-                foreach ( $point in $block_unit_object.particle_dimensions.$particle ) {
-                    $temp_particle_roster += @{
-                        "$($point.x),$($point.y)" = "$($block_unit_object.block_unit_type)"
-                    }
-                }
-            }
-        }
-
-        $this.particle_roster = $temp_particle_roster
-
+        
         # Fetch the depth of the x dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.x[-1]
         $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 2)
-
+        
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
-
+        
         # Generate data object to store the roster of particles we are going to display
         $temp_full_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
         $temp_full_particle_roster_colors = New-Object 'string[,]' $x_dimension_depth,$y_dimension_depth
         $temp_full_particle_roster_shape = New-Object 'string[,]' $x_dimension_depth,$y_dimension_depth
+        # Create our in/active particle roster
+        $temp_inactive_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
+        $temp_active_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
 
         $active_color_background = 'Green'
         $active_color_foreground = 'Black'
 
         $inactive_color_background = 'Gray'
         $inactive_color_foreground = 'Black'
-
+        
         $border_color_background = 'Blue'
         $border_color_foreground = 'White'
 
@@ -179,6 +164,8 @@ class particleFabric
             $temp_full_particle_roster_shape[$($x_dimension_depth - 1),$y] = 'X'
             $temp_full_particle_roster[0,$y] = $true
             $temp_full_particle_roster[$($x_dimension_depth - 1),$y] = $true
+            $temp_inactive_particle_roster[0,$y] = $true
+            $temp_inactive_particle_roster[$($x_dimension_depth - 1),$y] = $true
         }
         # Set the full border of the roster and its colors
         foreach ( $x in $(0..$($x_dimension_depth - 1)) ) {
@@ -188,12 +175,9 @@ class particleFabric
             $temp_full_particle_roster_shape[$x,$($y_dimension_depth - 1)] = 'X'
             $temp_full_particle_roster[$x,0] = $true
             $temp_full_particle_roster[$x,$($y_dimension_depth - 1)] = $true
+            $temp_inactive_particle_roster[$x,0] = $true
+            $temp_inactive_particle_roster[$x,$($y_dimension_depth - 1)] = $true
         }
-
-
-        # Create our in/active particle roster
-        $temp_inactive_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
-        $temp_active_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
 
         foreach ( $block_unit in $this.fabric_block_units.Keys ) {
             foreach ( $particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys ) {
@@ -285,7 +269,7 @@ class particleFabric
 
                     $this.update_particle_roster()
 
-                    $this.fabric_block_units.$temp_block_unit_id.particle_roster = $this.particle_roster
+                    $this.fabric_block_units.$temp_block_unit_id.particle_roster = $this.inactive_particle_roster
 
                     Clear-Host
 
@@ -494,12 +478,12 @@ function Test-ParticleStacking() {
 
                 $fabric.fabric_block_units.$block_unit_id.do_something($action)
 
-                $fabric.update_particle_roster()
-
                 # $fabric.fabric_block_units.$block_unit_id.print_block_unit_dimensions()
+
+                $fabric.draw_particle_roster()
+
+                $Host.UI.RawUI.FlushInputBuffer()
             }
-            $fabric.draw_particle_roster()
-            $Host.UI.RawUI.FlushInputBuffer()
             #Start-Sleep -Milliseconds 5
         }
 
