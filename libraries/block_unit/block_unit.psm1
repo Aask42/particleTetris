@@ -236,8 +236,9 @@ class blockUnit
         $this.write_log("Attempting to transform to new possible dimension")
         
         # Translate each particle's rotation independently about the "truth" axis
-        $new_coords = $this.particle_dimensions
-        $old_coords = $this.particle_dimensions
+        $new_coords = Copy-Object $this.particle_dimensions
+        $old_coords = Copy-Object $this.particle_dimensions
+        
         $x_mod = $null
         $y_mod = $null
         $x_collision = $false
@@ -248,95 +249,95 @@ class blockUnit
         foreach($particle in $new_coords.Keys -ne "truth"){
             foreach($point in $new_coords.$particle) {
 
-                $y_len = $old_coords.$particle.x - $old_coords.truth.x
-                $x_len = $old_coords.$particle.y - $old_coords.truth.y
-
                 if($direction -eq "right") {
-                    $x_mod = $x_len
-                    $y_mod = -$y_len
-
+                    $y_mod = -($old_coords.$particle.x - $old_coords.truth.x)
+                    $x_mod = $old_coords.$particle.y - $old_coords.truth.y
                 }
                 if($direction -eq "left") {
-                    $x_mod = -$x_len
-                    $y_mod = $y_len
+                    $y_mod = $old_coords.$particle.x - $old_coords.truth.x
+                    $x_mod = -($old_coords.$particle.y - $old_coords.truth.y)
                 }
-                
+
                 $new_coords.$particle.x = $old_coords.truth.x + $x_mod
                 $new_coords.$particle.y = $old_coords.truth.y + $y_mod
-                
+
                 if ( $this.coords_in_particle_roster($point) ) {
                     $collision = $true
                 }
             }
         }
 
-        if ( $collision ) {
-            $temp_new_coords = $new_coords
-            foreach($particle in $temp_new_coords.Keys){
-    
-                $temp_new_coords.$particle.x = $new_coords.$particle.x
-                $temp_new_coords.$particle.y = $new_coords.$particle.y + 1
+        while ( $collision ) {
+            # Try moving it on the y axis
+            $temp_new_coords = Copy-Object $new_coords
 
+            foreach($particle in $new_coords.Keys){
+
+                $temp_new_coords.$particle.x = $new_coords.$particle.x
+                $temp_new_coords.$particle.y = $new_coords.$particle.y - 1
+                
                 if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
                     $y_collision = $true
                 }
             }
-            
-            if ( $y_collision ) {
+
+            if ( !$y_collision ) {
+                $new_coords = Copy-Object $temp_new_coords
+                break
+            } else {
+                $temp_new_coords = Copy-Object $new_coords
                 $y_collision = $false
-                $temp_new_coords = $new_coords
-                foreach($particle in $temp_new_coords.Keys){
+                foreach($particle in $new_coords.Keys){
 
                     $temp_new_coords.$particle.x = $new_coords.$particle.x
-                    $temp_new_coords.$particle.y = $new_coords.$particle.y - 1
+                    $temp_new_coords.$particle.y = $new_coords.$particle.y + 1
     
-                    if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
-                        $y_collision = $true
-                    }
+                    if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) { $y_collision = $true }
                 }
-            } else {
-                $new_coords = $temp_new_coords
-            }
+                if ( !$y_collision ) {
+                    $new_coords = Copy-Object $temp_new_coords
+                    break
+                }    
+            } 
+            # Try moving it positive on the x axis
             
-            if ( $y_collision ) {
-                $temp_new_coords = $new_coords
+            $temp_new_coords = Copy-Object $new_coords
+            foreach($particle in $new_coords.Keys){
+
+                $temp_new_coords.$particle.x = $new_coords.$particle.x + 1
+                $temp_new_coords.$particle.y = $new_coords.$particle.y 
+
+                if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
+                    $x_collision = $true
+                }
+            }
+
+            if ( !$x_collision ) {
+                $new_coords = Copy-Object $temp_new_coords
+                break
+            } else {
+                $temp_new_coords = Copy-Object $new_coords
+                $x_collision = $false
                 foreach($particle in $temp_new_coords.Keys){
-                    $y_len = $temp_new_coords.$particle.y - $temp_new_coords.truth.y
-                    $x_len = $temp_new_coords.$particle.x - $temp_new_coords.truth.x
-    
-                    $temp_new_coords.$particle.x = $new_coords.$particle.x + 1
-                    $temp_new_coords.$particle.y = $new_coords.$particle.y 
+
+                    $temp_new_coords.$particle.x = $new_coords.$particle.x - 1
+                    $temp_new_coords.$particle.y = $new_coords.$particle.y
     
                     if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
                         $x_collision = $true
                     }
                 }
-
-                if ( $x_collision ) {
-                    $x_collision = $false
-                    $temp_new_coords = $new_coords
-
-                    foreach($particle in $temp_new_coords.Keys){
-                        $y_len = $temp_new_coords.$particle.x - $temp_new_coords.truth.x
-                        $x_len = $temp_new_coords.$particle.y - $temp_new_coords.truth.y
-        
-                        $temp_new_coords.$particle.x = $new_coords.$particle.x - 1
-                        $temp_new_coords.$particle.y = $new_coords.$particle.y
-        
-                        if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
-                            $x_collision = $true
-                        }
-                    }
-                } else {
-                    $new_coords = $temp_new_coords
+                if ( !$x_collision ) {
+                    $new_coords = Copy-Object $temp_new_coords
+                    break
                 }
+            } 
                 
-            } else {
-                $new_coords = $temp_new_coords
-            }
+            $new_coords = Copy-Object $old_coords
+            break
         }
         
-        if ( !$x_collision ) {
+        if ( !$x_collision -or !$y_collision ) {
             # If we have successfully passed all checks, set status of doing something successfully to true ^_^
             $this.block_unit_successfully_did_something = $true
         }
@@ -478,6 +479,21 @@ class blockUnit
 
         return $false
     }
+}
+
+function Copy-Object {
+    # http://stackoverflow.com/questions/7468707/deep-copy-a-dictionary-hashtable-in-powershell
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$InputObject
+    )
+
+    $memStream = New-Object -TypeName IO.MemoryStream
+    $formatter = New-Object -TypeName Runtime.Serialization.Formatters.Binary.BinaryFormatter
+    $formatter.Serialize($memStream, $InputObject)
+    $memStream.Position = 0
+    $formatter.Deserialize($memStream)
 }
 
 function New-BlockUnit($block_unit_id = $null)

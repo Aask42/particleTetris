@@ -208,6 +208,8 @@ class particleFabric
         $this.inactive_particle_roster = $temp_inactive_particle_roster
         $this.active_particle_roster = $temp_active_particle_roster
 
+        $this.fabric_block_units."block_unit.$($this.current_block_unit)".particle_roster = $temp_inactive_particle_roster
+    
         $this.current_time = $this.write_log("Updated particle roster ^_^")
     }
 
