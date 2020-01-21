@@ -19,6 +19,8 @@ class particleFabric
 
     $current_time = 0
 
+    [bool] $auto_play = $false;
+
     # Set default log location and filename
     $LogFolderPath = "$PSScriptRoot\logs"
     $LogFilePath = "$($this.LogFolderPath)\$($pid)`_particleFabric.log"
@@ -146,6 +148,7 @@ class particleFabric
         # Create our in/active particle roster
         $temp_inactive_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
         $temp_active_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
+        $temp_particle_roster = @{}
 
         $active_color_background = 'Green'
         $active_color_foreground = 'Black'
@@ -160,8 +163,8 @@ class particleFabric
         foreach ( $y in $(0..$($y_dimension_depth - 1)) ) {
             $temp_full_particle_roster_colors[0,$y] = "$border_color_background,$border_color_foreground"
             $temp_full_particle_roster_colors[$($x_dimension_depth - 1),$y] = "$border_color_background,$border_color_foreground"
-            $temp_full_particle_roster_shape[0,$y] = 'X'
-            $temp_full_particle_roster_shape[$($x_dimension_depth - 1),$y] = 'X'
+            $temp_full_particle_roster_shape[0,$y] = ' '
+            $temp_full_particle_roster_shape[$($x_dimension_depth - 1),$y] = ' '
             $temp_full_particle_roster[0,$y] = $true
             $temp_full_particle_roster[$($x_dimension_depth - 1),$y] = $true
             $temp_inactive_particle_roster[0,$y] = $true
@@ -171,14 +174,15 @@ class particleFabric
         foreach ( $x in $(0..$($x_dimension_depth - 1)) ) {
             $temp_full_particle_roster_colors[$x,0] = "$border_color_background,$border_color_foreground"
             $temp_full_particle_roster_colors[$x,$($y_dimension_depth - 1)] = "$border_color_background,$border_color_foreground"
-            $temp_full_particle_roster_shape[$x,0] = 'X'
-            $temp_full_particle_roster_shape[$x,$($y_dimension_depth - 1)] = 'X'
+            $temp_full_particle_roster_shape[$x,0] = ' '
+            $temp_full_particle_roster_shape[$x,$($y_dimension_depth - 1)] = ' '
             $temp_full_particle_roster[$x,0] = $true
             $temp_full_particle_roster[$x,$($y_dimension_depth - 1)] = $true
             $temp_inactive_particle_roster[$x,0] = $true
             $temp_inactive_particle_roster[$x,$($y_dimension_depth - 1)] = $true
         }
-
+        
+        $num_of_particles = 0;
         foreach ( $block_unit in $this.fabric_block_units.Keys ) {
             foreach ( $particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys ) {
                 # Make our coords
@@ -199,6 +203,12 @@ class particleFabric
                     $temp_full_particle_roster_colors[$x,$y] = "$inactive_color_background,$inactive_color_foreground"
                     $temp_inactive_particle_roster[$x,$y] = $true
                 }
+                $temp_particle_roster += @{
+                    "$($this.fabric_block_units.$block_unit.block_unit).$particle" = @{
+                        "x" = $x;
+                        "y" = $y
+                    }
+                }
             }
         }
 
@@ -207,6 +217,7 @@ class particleFabric
         $this.full_particle_roster_shape = $temp_full_particle_roster_shape
         $this.inactive_particle_roster = $temp_inactive_particle_roster
         $this.active_particle_roster = $temp_active_particle_roster
+        $this.particle_roster = $temp_particle_roster
 
         $this.fabric_block_units."block_unit.$($this.current_block_unit)".particle_roster = $temp_inactive_particle_roster
     
@@ -229,7 +240,7 @@ class particleFabric
             foreach ( $x in $(0..$($x_dimension_depth - 1))) {
                 if ( $this.full_particle_roster_colors[$x,$y] -ne $null ) {
                     [Console]::SetCursorPosition($x,$y)
-                    $symbol = $this.full_particle_roster_shape[$x,$y][0]
+                    $symbol = ' '# $this.full_particle_roster_shape[$x,$y][0]
                     $background_color = $this.full_particle_roster_colors[$x,$y].Split(",")[0]
                     $foreground_color = $this.full_particle_roster_colors[$x,$y].Split(",")[-1]
                     Write-Host "$symbol" -ForegroundColor $foreground_color -BackgroundColor $background_color -NoNewline
@@ -284,6 +295,87 @@ class particleFabric
                     $this.draw_particle_roster()
                 }
             }
+        }
+    }
+    [void] clear_complete_lines () {
+
+        # Fetch the depth of the x dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.x[-1]
+        $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 2)
+
+        # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
+        $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
+        
+        $y = 1
+        $cleared_line = $false
+        
+        $particles_to_remove = @()
+        $particles_to_move_down = @()
+
+        while ($y -lt ($y_dimension_depth - 1)) {
+            $row_particle_count = 0
+            if($($this.particle_roster.values.y -eq $y).Count -eq 10){
+                Write-Host "Removing line in row $y!!!"
+                $cleared_line = $true
+                $temp_keys = $this.fabric_block_units.Keys
+                 foreach($block_unit in $this.fabric_block_units.Keys) {
+                    foreach($particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys) {
+                        if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -eq $y) {
+                            $particles_to_remove += "$block_unit;$particle"                            
+                        } 
+                        else {
+                            if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -lt $y){
+                                $particles_to_move_down += "$block_unit;$particle"                            
+                            } 
+                        }
+                    }
+                }  
+                foreach($ghost_particle in $particles_to_remove) {
+                    $block_unit = $ghost_particle.Split(";")[0]
+                    $particle = $ghost_particle.Split(";")[-1]
+                    $this.remove_particle_from_block_unit($block_unit,$particle)
+                }
+                foreach($loose_particle in $particles_to_move_down) {
+                    $block_unit = $loose_particle.Split(";")[0]
+                    $particle = $loose_particle.Split(";")[-1]
+                    $this.fabric_block_units.$block_unit.particle_dimensions.$particle.y += 1
+                }   
+            }
+            $y++
+        }
+        if($cleared_line){
+            Write-Host "Cleared completed lines ^_^"
+        }
+    }
+
+    [bool] remove_particle_from_block_unit ($block_unit_id, $particle) {
+
+        if(!$this.fabric_block_units.$block_unit_id) {
+            Write-Host "$block_unit_id doesn't exist...you sure that's the command you wanted to submit? \\(^_^)/"
+            return 0
+        }
+        if(!$this.fabric_block_units.$block_unit_id.particle_dimensions.$particle) {
+            Write-Host "$block_unit_id doesn't have that particle...you sure that's the command you wanted to submit? \\(^_^)/"
+            return 0
+        }
+        $temp = $this.fabric_block_units.$block_unit_id.particle_dimensions
+        $temp.Remove($particle)
+
+        if($this.fabric_block_units.$block_unit_id.particle_dimensions.$particle) {
+            return 0
+        }
+        $this.fabric_block_units.$block_unit_id.particle_dimensions = $temp
+        return 1
+    }
+
+    [void] step_time_forward() {
+        $this.current_time += 1
+    }
+
+    [void] step_time_forward($steps_to_take) {
+        $i = 0
+        while($i -le $steps_to_take) {
+            $this.step_time_forward()
+            $i++;
         }
     }
 }
@@ -360,13 +452,6 @@ function Test-ParticleMovement() {
                 $fabric.current_time = $fabric.write_log("$msg")
                 $action = "move_down"
             }
-            # Up key
-            'UpArrow' {
-                $msg = "UP key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "move_up"
-            }
             # X key
             'X' {
                 $msg = "X key was pressed!"
@@ -433,6 +518,8 @@ function Test-ParticleStacking() {
                 # Up key
                 'UpArrow' {
                     $fabric.current_time = $fabric.write_log("UP key was pressed!")
+
+                    #$fabric.hard_drop_active_block()
                     $action = "move_up"
                 }
                 # Right key
@@ -444,11 +531,6 @@ function Test-ParticleStacking() {
                 'DownArrow' {
                     $fabric.current_time = $fabric.write_log("DOWN key was pressed!")
                     $action = "move_down"
-                }
-                # Up key
-                'UpArrow' {
-                    $fabric.current_time = $fabric.write_log("UP key was pressed!")
-                    $action = "move_up"
                 }
                 # X key
                 'X' {
@@ -468,6 +550,9 @@ function Test-ParticleStacking() {
                 "S" {
                     $fabric.swap_active_block()
                 }
+                "C" {
+                    $fabric.clear_complete_lines()
+                }
                 'Escape' {
                     $run = $false
                 }
@@ -478,15 +563,16 @@ function Test-ParticleStacking() {
 
                 $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
-                $fabric.fabric_block_units.$block_unit_id.do_something($action)
+                $do_something = $fabric.fabric_block_units.$block_unit_id.do_something($action)
 
                 # $fabric.fabric_block_units.$block_unit_id.print_block_unit_dimensions()
 
-                $fabric.draw_particle_roster()
-
-                $Host.UI.RawUI.FlushInputBuffer()
+                
             }
-            #Start-Sleep -Milliseconds 5
+            $fabric.draw_particle_roster()
+
+            $Host.UI.RawUI.FlushInputBuffer()
+            # Start-Sleep -Milliseconds 1
         }
 
     }
