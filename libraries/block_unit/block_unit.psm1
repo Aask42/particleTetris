@@ -242,20 +242,20 @@ class blockUnit
         } else {
             $this.piece_orientation = $this.piece_orientation + 1
         }
-        
+
         $this.write_log("Set block_unit orientation to: $($this.piece_orientation)")
-        
+
         $this.write_log("Attempting to transform to new possible dimension")
-        
+
         # Translate each particle's rotation independently about the "truth" axis
         $new_coords = Copy-Object $this.particle_dimensions
         $old_coords = Copy-Object $this.particle_dimensions
-        
+
         $x_mod = $null
         $y_mod = $null
         $x_collision = $false
         $y_collision = $false
-        
+
         $collision = $false
 
         foreach($particle in $new_coords.Keys -ne "truth"){
@@ -287,7 +287,7 @@ class blockUnit
 
                 $temp_new_coords.$particle.x = $new_coords.$particle.x
                 $temp_new_coords.$particle.y = $new_coords.$particle.y - 1
-                
+
                 if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
                     $y_collision = $true
                 }
@@ -303,21 +303,21 @@ class blockUnit
 
                     $temp_new_coords.$particle.x = $new_coords.$particle.x
                     $temp_new_coords.$particle.y = $new_coords.$particle.y + 1
-    
+
                     if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) { $y_collision = $true }
                 }
                 if ( !$y_collision ) {
                     $new_coords = Copy-Object $temp_new_coords
                     break
-                }    
-            } 
+                }
+            }
             # Try moving it positive on the x axis
-            
+
             $temp_new_coords = Copy-Object $new_coords
             foreach($particle in $new_coords.Keys){
 
                 $temp_new_coords.$particle.x = $new_coords.$particle.x + 1
-                $temp_new_coords.$particle.y = $new_coords.$particle.y 
+                $temp_new_coords.$particle.y = $new_coords.$particle.y
 
                 if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
                     $x_collision = $true
@@ -334,7 +334,7 @@ class blockUnit
 
                     $temp_new_coords.$particle.x = $new_coords.$particle.x - 1
                     $temp_new_coords.$particle.y = $new_coords.$particle.y
-    
+
                     if ( $this.coords_in_particle_roster($temp_new_coords.$particle) ) {
                         $x_collision = $true
                     }
@@ -343,17 +343,17 @@ class blockUnit
                     $new_coords = Copy-Object $temp_new_coords
                     break
                 }
-            } 
-                
+            }
+
             $new_coords = Copy-Object $old_coords
             break
         }
-        
+
         if ( !$x_collision -or !$y_collision ) {
             # If we have successfully passed all checks, set status of doing something successfully to true ^_^
             $this.block_unit_successfully_did_something = $true
         }
-       
+
         return $new_coords
     }
 
@@ -455,41 +455,41 @@ class blockUnit
 
         $new_particle_dimensions = @{}
 
-        ## Figure out the max # of spaces we can move down. 
+        ## Figure out the max # of spaces we can move down.
 
         $y_min = 1
         $y_len = $this.particle_roster.GetLength(1) - 2
-        
-        
+
+
         foreach ( $particle in $this.particle_dimensions.Keys ) {
             # Set min y particle coord
-            if ( $this.particle_dimensions.$particle.y -gt $y_min ) { 
+            if ( $this.particle_dimensions.$particle.y -gt $y_min ) {
                 $y_min = $this.particle_dimensions.$particle.y
             }
             $x_coord_list += $this.particle_dimensions.$particle.x
         }
-        
+
         $max_num_spaces = $y_len - $y_min
-        
+
         # Set max y particle coord
-        foreach ( $y in @($($y_min + 1)..$y_len) ) {
-            
+        foreach ( $y in @($($y_min + 1)..$max_num_spaces) ) {
+
             $counter = 0
 
             foreach ( $particle in $this.particle_dimensions.Keys ) {
-                $x = $this.particle_dimensions.$particle.x        
-                if( $this.particle_roster[$x,$y] -eq $true) {
+                $x = $this.particle_dimensions.$particle.x
+                if( $this.particle_roster[$x,$y]) {
                     break
                 } else {
-                    $counter = $y - $y_min
-                }    
+                    $counter = $y
+                }
             }
-            
-            if ( $counter -lt $max_num_spaces ) {
+
+            if ( $counter -gt $max_num_spaces ) {
                 $max_num_spaces = $counter
             }
         }
-        
+
         $number_of_spaces = $max_num_spaces
 
         # This will transform the block vertically

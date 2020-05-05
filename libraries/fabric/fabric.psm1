@@ -50,7 +50,7 @@ class particleFabric
         $this.fabric_block_units += @{
             "$block_unit_id" = $new_block
         }
-        
+
         # Ensure this particle doesn't get the full roster until its siblings have been added
         $this.update_particle_roster()
 
@@ -134,13 +134,13 @@ class particleFabric
     }
 
     [void] update_particle_roster () {
-        
+
         # Fetch the depth of the x dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.x[-1]
         $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 2)
-        
+
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
-        
+
         # Generate data object to store the roster of particles we are going to display
         $temp_full_particle_roster = New-Object 'switch[,]' $x_dimension_depth,$y_dimension_depth
         $temp_full_particle_roster_colors = New-Object 'string[,]' $x_dimension_depth,$y_dimension_depth
@@ -155,7 +155,6 @@ class particleFabric
 
         $inactive_color_background = 'Gray'
         $inactive_color_foreground = 'Black'
-        
         $border_color_background = 'Cyan'
         $border_color_foreground = 'White'
 
@@ -181,7 +180,7 @@ class particleFabric
             $temp_inactive_particle_roster[$x,0] = $true
             $temp_inactive_particle_roster[$x,$($y_dimension_depth - 1)] = $true
         }
-        
+
         $num_of_particles = 0;
         foreach ( $block_unit in $this.fabric_block_units.Keys ) {
             foreach ( $particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys ) {
@@ -202,7 +201,6 @@ class particleFabric
                     $temp_active_particle_roster[$x,$y] = $true
                 } else {
                     $inactive_color_background = $this.fabric_block_units.$block_unit.block_unit_colors.$($this.fabric_block_units.$block_unit.block_unit_type)
-                    
                     $temp_full_particle_roster_colors[$x,$y] = "$inactive_color_background,$inactive_color_foreground"
                     $temp_inactive_particle_roster[$x,$y] = $true
                 }
@@ -223,7 +221,7 @@ class particleFabric
         $this.particle_roster = $temp_particle_roster
 
         $this.fabric_block_units."block_unit.$($this.current_block_unit)".particle_roster = $temp_inactive_particle_roster
-    
+
         $this.current_time = $this.write_log("Updated particle roster ^_^")
     }
 
@@ -307,10 +305,10 @@ class particleFabric
 
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
-        
+
         $y = 1
         $cleared_line = $false
-        
+
         $particles_to_remove = @()
         $particles_to_move_down = @()
 
@@ -323,15 +321,15 @@ class particleFabric
                  foreach($block_unit in $this.fabric_block_units.Keys) {
                     foreach($particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys) {
                         if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -eq $y) {
-                            $particles_to_remove += "$block_unit;$particle"                            
-                        } 
+                            $particles_to_remove += "$block_unit;$particle"
+                        }
                         else {
                             if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -lt $y){
-                                $particles_to_move_down += "$block_unit;$particle"                            
-                            } 
+                                $particles_to_move_down += "$block_unit;$particle"
+                            }
                         }
                     }
-                }  
+                }
                 foreach($ghost_particle in $particles_to_remove) {
                     $block_unit = $ghost_particle.Split(";")[0]
                     $particle = $ghost_particle.Split(";")[-1]
@@ -341,7 +339,7 @@ class particleFabric
                     $block_unit = $loose_particle.Split(";")[0]
                     $particle = $loose_particle.Split(";")[-1]
                     $this.fabric_block_units.$block_unit.particle_dimensions.$particle.y += 1
-                }   
+                }
             }
             $y++
         }
@@ -511,7 +509,9 @@ function Test-ParticleStacking() {
 
             # Clear our console
             [System.Console]::Clear()
-            
+
+            $fabric.current_time = $fabric.write_log("$key key was pressed!")
+
             $fabric.current_time = $fabric.write_log("$key key was pressed!")
 
             switch($key.Key) {
@@ -527,8 +527,8 @@ function Test-ParticleStacking() {
                 'X' { $action = "rotate_left" }
                 # Z key
                 'Z' { $action = "rotate_right" }
-                'N' { 
-                    $fabric.generate_new_block_unit() 
+                'N' {
+                    $fabric.generate_new_block_unit()
                     $fabric.draw_particle_roster()
                 }
                 "S" { $fabric.swap_active_block() }
