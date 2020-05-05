@@ -156,7 +156,7 @@ class particleFabric
         $inactive_color_background = 'Gray'
         $inactive_color_foreground = 'Black'
         
-        $border_color_background = 'Blue'
+        $border_color_background = 'Cyan'
         $border_color_foreground = 'White'
 
         # Set the full border of the roster and its colors
@@ -197,9 +197,12 @@ class particleFabric
 
                 # Set printout colors, and set particle in either in/active particle rosters
                 if ( $this.fabric_block_units.$block_unit.is_active ) {
+                    $active_color_background = $this.fabric_block_units.$block_unit.block_unit_colors.$($this.fabric_block_units.$block_unit.block_unit_type)
                     $temp_full_particle_roster_colors[$x,$y] = "$active_color_background,$active_color_foreground"
                     $temp_active_particle_roster[$x,$y] = $true
                 } else {
+                    $inactive_color_background = $this.fabric_block_units.$block_unit.block_unit_colors.$($this.fabric_block_units.$block_unit.block_unit_type)
+                    
                     $temp_full_particle_roster_colors[$x,$y] = "$inactive_color_background,$inactive_color_foreground"
                     $temp_inactive_particle_roster[$x,$y] = $true
                 }
@@ -286,18 +289,18 @@ class particleFabric
 
                     Clear-Host
 
-                    Write-Host("`nSuccessfully swapped active piece")
+                    $this.write_log("Successfully swapped active piece")
 
                     $this.draw_particle_roster()
 
                 } else {
-                    Write-Host("`nUnable to add piece to board from on-deck...")
+                    $this.write_log("Unable to add piece to board from on-deck...")
                     $this.draw_particle_roster()
                 }
             }
         }
     }
-    [void] clear_complete_lines () {
+        [void] clear_complete_lines () {
 
         # Fetch the depth of the x dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.x[-1]
         $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 2)
@@ -314,7 +317,7 @@ class particleFabric
         while ($y -lt ($y_dimension_depth - 1)) {
             $row_particle_count = 0
             if($($this.particle_roster.values.y -eq $y).Count -eq 10){
-                Write-Host "Removing line in row $y!!!"
+                $this.write_log("Removing line in row $y!!!")
                 $cleared_line = $true
                 $temp_keys = $this.fabric_block_units.Keys
                  foreach($block_unit in $this.fabric_block_units.Keys) {
@@ -342,8 +345,8 @@ class particleFabric
             }
             $y++
         }
-        if($cleared_line){
-            Write-Host "Cleared completed lines ^_^"
+        if( $cleared_line ) {
+            $this.write_log( "Cleared completed lines ^_^" )
         }
     }
 
@@ -508,66 +511,38 @@ function Test-ParticleStacking() {
 
             # Clear our console
             [System.Console]::Clear()
+            
+            $fabric.current_time = $fabric.write_log("$key key was pressed!")
 
             switch($key.Key) {
                 # Left key
-                'LeftArrow' {
-                    $fabric.current_time = $fabric.write_log("LEFT key was pressed!")
-                    $action = "move_left"
-                }
+                'LeftArrow' { $action = "move_left" }
                 # Up key
-                'UpArrow' {
-                    $fabric.current_time = $fabric.write_log("UP key was pressed!")
-
-                    #$fabric.hard_drop_active_block()
-                    $action = "move_up"
-                }
+                'UpArrow' { $action = "move_up" }
                 # Right key
-                'RightArrow' {
-                    $fabric.current_time = $fabric.write_log("RIGHT key was pressed!")
-                    $action = "move_right"
-                }
+                'RightArrow' { $action = "move_right" }
                 # Down key
-                'DownArrow' {
-                    $fabric.current_time = $fabric.write_log("DOWN key was pressed!")
-                    $action = "move_down"
-                }
+                'DownArrow' { $action = "move_down" }
                 # X key
-                'X' {
-                    $fabric.current_time = $fabric.write_log("X key was pressed!")
-                    $action = "rotate_left"
-                }
+                'X' { $action = "rotate_left" }
                 # Z key
-                'Z' {
-                    $fabric.current_time = $fabric.write_log("Z key was pressed!")
-                    $action = "rotate_right"
-                }
-                'N' {
-                    $fabric.current_time = $fabric.write_log("N key was pressed!")
-                    $fabric.generate_new_block_unit()
+                'Z' { $action = "rotate_right" }
+                'N' { 
+                    $fabric.generate_new_block_unit() 
                     $fabric.draw_particle_roster()
                 }
-                "S" {
-                    $fabric.swap_active_block()
-                }
-                "C" {
-                    $fabric.clear_complete_lines()
-                }
-                'Escape' {
-                    $run = $false
-                }
+                "S" { $fabric.swap_active_block() }
+                "C" { $fabric.clear_complete_lines() }
+                'Escape' { $run = $false }
             }
 
-            # We need to do something after setting the sibling_block_units variable
+            # Now act on the active block unit
             if($null -ne $action) {
 
                 $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
                 $do_something = $fabric.fabric_block_units.$block_unit_id.do_something($action)
 
-                # $fabric.fabric_block_units.$block_unit_id.print_block_unit_dimensions()
-
-                
             }
             $fabric.draw_particle_roster()
 
