@@ -512,8 +512,6 @@ function Test-ParticleStacking() {
 
             $fabric.current_time = $fabric.write_log("$key key was pressed!")
 
-            $fabric.current_time = $fabric.write_log("$key key was pressed!")
-
             switch($key.Key) {
                 # Left key
                 'LeftArrow' { $action = "move_left" }
