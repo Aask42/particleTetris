@@ -457,61 +457,50 @@ class blockUnit
 
         ## Figure out the max # of spaces we can move down.
 
-        $y_min = 1
         $y_len = $this.particle_roster.GetLength(1) - 2
 
-
-        foreach ( $particle in $this.particle_dimensions.Keys ) {
-            # Set min y particle coord
-            if ( $this.particle_dimensions.$particle.y -gt $y_min ) {
-                $y_min = $this.particle_dimensions.$particle.y
-            }
-            $x_coord_list += $this.particle_dimensions.$particle.x
-        }
-
-        $max_num_spaces = $y_len - $y_min
-
         # Set max y particle coord
-        foreach ( $y in @($($y_min + 1)..$max_num_spaces) ) {
+        $distance = 0
 
-            $counter = 0
-
+        foreach ( $length in @( 1..$($y_len - 1) ) ) {
+            $allowed = $true
             foreach ( $particle in $this.particle_dimensions.Keys ) {
+
                 $x = $this.particle_dimensions.$particle.x
-                if( $this.particle_roster[$x,$y]) {
+                $y = $this.particle_dimensions.$particle.y + $length
+                if( $this.particle_roster[$x,$y] ) {
+                    $allowed = $false
                     break
-                } else {
-                    $counter = $y
                 }
             }
-
-            if ( $counter -gt $max_num_spaces ) {
-                $max_num_spaces = $counter
+            if (!$allowed) {
+                $distance = $length - 1
+                break
             }
         }
-
-        $number_of_spaces = $max_num_spaces
 
         # This will transform the block vertically
 
-        $this.write_log("Checking to see if we can move $number_of_spaces space vertically...")
+        $this.write_log("Checking to see if we can move $distance space vertically...")
 
         foreach($particle in $this.particle_dimensions.Keys){
             $y_curr = $this.particle_dimensions.$particle.y
             $x_curr = $this.particle_dimensions.$particle.x
 
-            $y_new = $y_curr + $number_of_spaces
+            $y_new = $y_curr + $distance
 
             # Ensure we're within the bounds of our playground
-            if($y_new -lt 1) { return $this.particle_dimensions }
-            if($y_new -gt $this.max_dimensions.y[-1]) { return $this.particle_dimensions }
+            if($y_new -lt 1) {
+                return $this.particle_dimensions }
+            if($y_new -gt $this.max_dimensions.y[-1]) {
+                return $this.particle_dimensions }
 
             $coords = @{ "x"=$x_curr; "y"=$y_new }
 
             # Validate no collisions with other block_units
-            if ( $this.coords_in_particle_roster($coords) ) {
-                return $this.particle_dimensions
-            }
+             if ( $this.coords_in_particle_roster($coords) ) {
+                 return $this.particle_dimensions
+             }
 
             # Add to new particle_dimensions
             $new_particle_dimensions += @{ "$particle" = $coords }
