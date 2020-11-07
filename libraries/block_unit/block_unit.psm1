@@ -490,17 +490,13 @@ class blockUnit
             $y_new = $y_curr + $distance
 
             # Ensure we're within the bounds of our playground
-            if($y_new -lt 1) {
-                return $this.particle_dimensions }
-            if($y_new -gt $this.max_dimensions.y[-1]) {
-                return $this.particle_dimensions }
+            if($y_new -lt 1) { return $this.particle_dimensions }
+            if($y_new -gt $this.max_dimensions.y[-1]) { return $this.particle_dimensions }
 
             $coords = @{ "x"=$x_curr; "y"=$y_new }
 
             # Validate no collisions with other block_units
-             if ( $this.coords_in_particle_roster($coords) ) {
-                 return $this.particle_dimensions
-             }
+             if ( $this.coords_in_particle_roster($coords) ) { return $this.particle_dimensions }
 
             # Add to new particle_dimensions
             $new_particle_dimensions += @{ "$particle" = $coords }
@@ -555,6 +551,10 @@ class blockUnit
         }
 
         return $false
+    }
+
+    [void] clear_complete_lines(){
+        # This function should check to see if any of our particles are in a line and need to clear out
     }
 }
 

@@ -13,6 +13,7 @@ class particleFabric
 
     $full_particle_roster = $null
     $full_particle_roster_colors = $null
+    $prev_particle_roster_colors = $null
     $full_particle_roster_shape = $null
     $inactive_particle_roster = $null
     $active_particle_roster = $null
@@ -236,15 +237,18 @@ class particleFabric
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
 
         # Loop through all grid spots and print out colors according to values in our hash tables
-        Clear-Host
         foreach ( $y in $(0..$($y_dimension_depth - 1))) {
             foreach ( $x in $(0..$($x_dimension_depth - 1))) {
-                if ( $this.full_particle_roster_colors[$x,$y] -ne $null ) {
+                if ( $null -ne $this.full_particle_roster_colors[$x,$y] ) {
                     [Console]::SetCursorPosition($x,$y)
                     $symbol = ' '# $this.full_particle_roster_shape[$x,$y][0]
                     $background_color = $this.full_particle_roster_colors[$x,$y].Split(",")[0]
                     $foreground_color = $this.full_particle_roster_colors[$x,$y].Split(",")[-1]
                     Write-Host "$symbol" -ForegroundColor $foreground_color -BackgroundColor $background_color -NoNewline
+                } else {
+                    [Console]::SetCursorPosition($x,$y)
+                    [Console]::ResetColor();
+
                 }
             }
         }
@@ -542,6 +546,83 @@ function Test-ParticleStacking() {
                 $do_something = $fabric.fabric_block_units.$block_unit_id.do_something($action)
 
             }
+            $fabric.draw_particle_roster()
+
+            $Host.UI.RawUI.FlushInputBuffer()
+            # Start-Sleep -Milliseconds 1
+        }
+
+    }
+    return $fabric
+}
+
+function Play-Tetris() {
+    $fabric = New-ParticleFabric
+
+    $block_unit_id = $fabric.generate_new_block_unit()
+
+    $fabric.draw_particle_roster()
+
+    $run = $true
+    $key = $null
+
+    $current_block_unit = 0
+
+    $block_unit_id = "block_unit.$current_block_unit"
+
+    while($run) {
+        # Check to see if a key was pressed
+        $action = $null
+
+        # If the key is not currently being held, detect key press
+        if ( ([console]::KeyAvailable) ) {
+
+            $key = [System.Console]::ReadKey()
+
+            # Clear our console
+            [System.Console]::Clear()
+
+            $fabric.current_time = $fabric.write_log("$key key was pressed!")
+
+            switch($key.Key) {
+                # Left key
+                'LeftArrow' { $action = "move_left" }
+                # Up key
+                'UpArrow' {
+                    $action = "move_up"
+                }
+                # Right key
+                'RightArrow' { $action = "move_right" }
+                # Down key
+                'DownArrow' { $action = "move_down" }
+                # X key
+                'X' { $action = "rotate_left" }
+                # Z key
+                'Z' { $action = "rotate_right" }
+                #'N' {
+                #    $fabric.generate_new_block_unit()
+                #    $fabric.draw_particle_roster()
+                #}
+                #"S" { $fabric.swap_active_block() }
+                #"C" { $fabric.clear_complete_lines() }
+                'Escape' { $run = $false }
+            }
+
+            # Now act on the active block unit
+            if($null -ne $action) {
+
+                $block_unit_id = "block_unit.$($fabric.current_block_unit)"
+
+                $do_something = $fabric.fabric_block_units.$block_unit_id.do_something($action)
+
+                if($action -eq "move_up"){
+                    $fabric.generate_new_block_unit()
+                    $fabric.swap_active_block()
+                }
+
+            }
+            $fabric.clear_complete_lines()
+
             $fabric.draw_particle_roster()
 
             $Host.UI.RawUI.FlushInputBuffer()
