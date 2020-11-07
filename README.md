@@ -6,10 +6,12 @@ This is meant to be the repo for a PowerShell implementation of Tetris which wil
 
 - Download Repository
 - Navigate to the proj folder on the PowerShell cli
-- ```powershell
+
+```powershell
 Import-Module .\init.ps1
 Play-Tetris
 ```
+
 - Note, there is NO progression of time, and there are bugs on the line clear function
 - Enjoy!
 
