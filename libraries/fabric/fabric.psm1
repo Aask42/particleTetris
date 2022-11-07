@@ -19,6 +19,7 @@ class particleFabric
     $active_particle_roster = $null
 
     $current_time = 0
+    $score = 0
 
     [bool] $auto_play = $false;
 
@@ -235,7 +236,8 @@ class particleFabric
 
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
-
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),5)
+        Write-Host "Score: $($this.score)"
         # Loop through all grid spots and print out colors according to values in our hash tables
         foreach ( $y in $(0..$($y_dimension_depth - 1))) {
             foreach ( $x in $(0..$($x_dimension_depth - 1))) {
@@ -318,31 +320,43 @@ class particleFabric
 
         while ($y -lt ($y_dimension_depth - 1)) {
             $row_particle_count = 0
-            if($($this.particle_roster.values.y -eq $y).Count -eq 10){
+            if($($this.particle_roster.values.y -eq $y).Count -eq $this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1]){
                 $this.write_log("Removing line in row $y!!!")
+                $this.score += 10
                 $cleared_line = $true
                 $temp_keys = $this.fabric_block_units.Keys
-                 foreach($block_unit in $this.fabric_block_units.Keys) {
+                foreach($block_unit in $temp_keys) {
                     foreach($particle in $this.fabric_block_units.$block_unit.particle_dimensions.Keys) {
+                        if(!$this.fabric_block_units.$block_unit.particle_dimensions.$particle) {
+                            Write-Host "$block_unit doesn't have that particle...you sure that's the command you wanted to submit? \\(^_^)/"
+                        }
                         if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -eq $y) {
+                            
                             $particles_to_remove += "$block_unit;$particle"
+                            
+                        }elseif($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -lt $y){
+                            $particles_to_move_down += "$block_unit;$particle"
                         }
-                        else {
-                            if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -lt $y){
-                                $particles_to_move_down += "$block_unit;$particle"
-                            }
-                        }
+                        
                     }
                 }
                 foreach($ghost_particle in $particles_to_remove) {
                     $block_unit = $ghost_particle.Split(";")[0]
                     $particle = $ghost_particle.Split(";")[-1]
-                    $this.remove_particle_from_block_unit($block_unit,$particle)
+                    if($this.fabric_block_units.$block_unit.particle_dimensions.$particle) {
+                        $this.remove_particle_from_block_unit($block_unit,$particle)
+                    }
+                    
                 }
+
                 foreach($loose_particle in $particles_to_move_down) {
                     $block_unit = $loose_particle.Split(";")[0]
                     $particle = $loose_particle.Split(";")[-1]
-                    $this.fabric_block_units.$block_unit.particle_dimensions.$particle.y += 1
+                    if($this.fabric_block_units.$block_unit.particle_dimensions.$particle) {
+                        if($this.fabric_block_units.$block_unit.particle_dimensions.$particle.y -lt $this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1]){
+                            $this.fabric_block_units.$block_unit.particle_dimensions.$particle.y += 1
+                        }
+                    }
                 }
             }
             $y++
@@ -548,7 +562,7 @@ function Test-ParticleStacking() {
             }
             $fabric.draw_particle_roster()
 
-            $Host.UI.RawUI.FlushInputBuffer()
+            #$Host.UI.RawUI.FlushInputBuffer()
             # Start-Sleep -Milliseconds 1
         }
 
@@ -625,7 +639,7 @@ function Play-Tetris() {
 
             $fabric.draw_particle_roster()
 
-            $Host.UI.RawUI.FlushInputBuffer()
+            #$Host.UI.RawUI.FlushInputBuffer()
             # Start-Sleep -Milliseconds 1
         }
 

@@ -10,7 +10,7 @@ class blockUnit
     # Set the max playground size
     $max_dimensions = @{
         "x" = (1..10)
-        "y" = (1..20)
+        "y" = (1..10)
     }
 
     $center = $($this.max_dimensions.x[-1] / 2)
