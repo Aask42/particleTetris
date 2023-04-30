@@ -242,8 +242,8 @@ class particleFabric
         
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),5)
         Write-Host "Score: $($this.score)"
-        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),10)
         
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),10)
         $time_elapsed = [int]$this.stopwatch.Elapsed.Seconds
         Write-Host "Elapsed Time: $time_elapsed"
         
@@ -583,6 +583,8 @@ function Play-Tetris() {
     $fabric = New-ParticleFabric
 
     $block_unit_id = $fabric.generate_new_block_unit()
+    $new_block = $true
+    [System.Console]::Clear()
 
     $fabric.draw_particle_roster()
 
@@ -593,8 +595,7 @@ function Play-Tetris() {
 
     $block_unit_id = "block_unit.$current_block_unit"
 
-    [bool] $triggered_down = 0
-
+    $false_counter = 0
     while($run) {
         # Check to see if a key was pressed
         $action = $null
@@ -643,6 +644,7 @@ function Play-Tetris() {
                 if($action -eq "move_up"){
                     $fabric.generate_new_block_unit()
                     $fabric.swap_active_block()
+                    $new_block = $true
                 }
 
             }
@@ -660,10 +662,24 @@ function Play-Tetris() {
             $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
             $do_something = $fabric.fabric_block_units.$block_unit_id.do_something("move_down")
+
+            # Check to see if we are bottomed out
+            if(!$fabric.fabric_block_units.$block_unit_id.block_unit_successfully_did_something){
+                $fabric.generate_new_block_unit()
+                $fabric.swap_active_block()
+            }
+            
+            
             [System.Console]::Clear()
+            
             $fabric.clear_complete_lines()
             $fabric.draw_particle_roster()
-
+            
+            if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -ge 2){
+                [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
+                Write-Host "YOU JUST LOST THE GAME"
+                $run = $false
+            }
         }
 
         

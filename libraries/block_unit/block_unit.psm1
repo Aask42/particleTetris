@@ -2,6 +2,7 @@ class blockUnit
 {
     # Set a unique name for this block
     $block_unit = $("{0:d6}" -f $(Get-Random -Minimum 1 -Maximum 999999))
+    $move_fail_counter = 0
 
     # Default to inactive, because this piece by default should generate in an "on_deck" state
     $is_active = $false
@@ -10,7 +11,7 @@ class blockUnit
     # Set the max playground size
     $max_dimensions = @{
         "x" = (1..10)
-        "y" = (1..10)
+        "y" = (1..20)
     }
 
     $center = $($this.max_dimensions.x[-1] / 2)
@@ -390,6 +391,7 @@ class blockUnit
 
             # Validate no collisions with other block_units
             if ( $this.coords_in_particle_roster($coords) ) {
+                $this.move_fail_counter += 1
                 return $this.particle_dimensions
             }
 
@@ -398,6 +400,7 @@ class blockUnit
         }
 
         $this.block_unit_successfully_did_something = $true
+        $this.move_fail_counter = 0
 
         return $new_particle_dimensions
     }
