@@ -368,10 +368,13 @@ class particleFabric
                     }
                 }
             }
-            $y++
-        }
-        if( $cleared_line ) {
-            $this.write_log( "Cleared completed lines ^_^" )
+            if( $cleared_line ) {
+                $this.write_log( "Cleared completed lines ^_^" )
+                $cleared_line = $false
+                break
+            } else {
+                $y++
+            }
         }
     }
 
