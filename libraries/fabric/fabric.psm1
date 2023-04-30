@@ -8,6 +8,9 @@ class particleFabric
     [int] $current_block_unit = 0
 
     [int64] $tick_count = 0
+    [int] $tick_speed = 1
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
 
     $particle_roster = $null
 
@@ -236,8 +239,14 @@ class particleFabric
 
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
+        
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),5)
         Write-Host "Score: $($this.score)"
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),10)
+        
+        $time_elapsed = [int]$this.stopwatch.Elapsed.Seconds
+        Write-Host "Elapsed Time: $time_elapsed"
+        
         # Loop through all grid spots and print out colors according to values in our hash tables
         foreach ( $y in $(0..$($y_dimension_depth - 1))) {
             foreach ( $x in $(0..$($x_dimension_depth - 1))) {
@@ -584,6 +593,8 @@ function Play-Tetris() {
 
     $block_unit_id = "block_unit.$current_block_unit"
 
+    [bool] $triggered_down = 0
+
     while($run) {
         # Check to see if a key was pressed
         $action = $null
@@ -624,7 +635,7 @@ function Play-Tetris() {
 
             # Now act on the active block unit
             if($null -ne $action) {
-
+                
                 $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
                 $do_something = $fabric.fabric_block_units.$block_unit_id.do_something($action)
@@ -635,13 +646,27 @@ function Play-Tetris() {
                 }
 
             }
-            $fabric.clear_complete_lines()
-
-            $fabric.draw_particle_roster()
-
+            
+            
             #$Host.UI.RawUI.FlushInputBuffer()
             # Start-Sleep -Milliseconds 1
+            $fabric.clear_complete_lines()
+            $fabric.draw_particle_roster()
         }
+
+        # Make a function of time vs blocks dropped
+        if([int] $fabric.stopwatch.Elapsed.Milliseconds % 1000 -eq 0){
+            # Move the piece down every N ticks
+            $block_unit_id = "block_unit.$($fabric.current_block_unit)"
+
+            $do_something = $fabric.fabric_block_units.$block_unit_id.do_something("move_down")
+            [System.Console]::Clear()
+            $fabric.clear_complete_lines()
+            $fabric.draw_particle_roster()
+
+        }
+
+        
 
     }
     return $fabric
