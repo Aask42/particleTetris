@@ -12,7 +12,8 @@ Import-Module .\init.ps1
 Play-Tetris
 ```
 
-- Note, there is NO progression of time, and there are bugs on the line clear function
+- Note, ~~there is NO progression of time, and there are bugs on the line clear function~~
+- Note: The progression of time is locked to 1 second per movement down. Will add levels later on. 
 - Enjoy!
 
 ## Screen Shot Example
