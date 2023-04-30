@@ -20,7 +20,8 @@ class particleFabric
     $full_particle_roster_shape = $null
     $inactive_particle_roster = $null
     $active_particle_roster = $null
-
+    $previous_particle_coordinates = @{}
+    $previous_full_particle_roster_colors = $null
     $current_time = 0
     $score = 0
 
@@ -105,38 +106,46 @@ class particleFabric
 
         # Fetch our block unit data
         $block_unit = $this.fabric_block_units.$block_unit_id
-
+    
         # Create our dataset object from our dimensions
         $block_unit_particle_coordinates = New-Object 'switch[,]' $($block_unit.max_dimensions.x.Count + 1),$($block_unit.max_dimensions.y.Count + 1)
-
+    
         foreach($particle in $block_unit.particle_dimensions.Keys){
             foreach($point in $block_unit.particle_dimensions.$particle) {
                 $block_unit_particle_coordinates[($point.x),($point.y)] = $true
                 $this.current_time = $this.write_log("Particle located at $($point.x),$($point.y)")
             }
         }
-
+    
         # Draw our piece
         $lines = @()
-
+    
         foreach ($y_coord in $block_unit.max_dimensions.y) {
             $y_coord = $y_coord
             $line = ""
             foreach ($x_coord in $block_unit.max_dimensions.x) {
                 $x_coord = $x_coord
-                if ($block_unit_particle_coordinates[$x_coord,$y_coord] -eq $true) {
-                    $line = "$line$($block_unit.block_unit_type[0])"
-                } else {
-                    $line = "$line "
+                if ($block_unit_particle_coordinates[$x_coord,$y_coord] -ne $this.previous_particle_coordinates.$block_unit_id[$x_coord,$y_coord]) {
+                    if ($block_unit_particle_coordinates[$x_coord,$y_coord] -eq $true) {
+                        $line = "$line$($block_unit.block_unit_type[0])"
+                    } else {
+                        $line = "$line "
+                    }
+                    $this.previous_particle_coordinates.$block_unit_id[$x_coord,$y_coord] = $block_unit_particle_coordinates[$x_coord,$y_coord]
                 }
             }
-            $line = "|$line|"
-
-            $lines += @($line)
+            if ($line -ne "") {
+                $line = "|$line|"
+                $lines += @($line)
+            }
         }
-
+    
         $lines | ForEach-Object {Write-Host $_}
+    
+        # Save the current state as previous state for the next loop
+        $this.previous_particle_coordinates.$block_unit_id = $block_unit_particle_coordinates
     }
+    
 
     [void] update_particle_roster () {
 
@@ -233,12 +242,16 @@ class particleFabric
     [void] draw_particle_roster () {
 
         $this.update_particle_roster()
-
+        
         # Fetch the depth of the x dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.x[-1]
         $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 2)
 
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
+        
+        if($null -eq $this.prev_particle_roster_colors){
+            $this.previous_full_particle_roster_colors = New-Object 'string[,]' $x_dimension_depth,$y_dimension_depth
+        }
         
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),5)
         Write-Host "Score: $($this.score)"
@@ -250,12 +263,15 @@ class particleFabric
         # Loop through all grid spots and print out colors according to values in our hash tables
         foreach ( $y in $(0..$($y_dimension_depth - 1))) {
             foreach ( $x in $(0..$($x_dimension_depth - 1))) {
-                if ( $null -ne $this.full_particle_roster_colors[$x,$y] ) {
+                if ( $null -ne $this.full_particle_roster_colors[$x,$y] -and
+                     $this.full_particle_roster_colors[$x,$y] -ne $this.previous_full_particle_roster_colors[$x,$y]) {
+    
                     [Console]::SetCursorPosition($x,$y)
                     $symbol = ' '# $this.full_particle_roster_shape[$x,$y][0]
                     $background_color = $this.full_particle_roster_colors[$x,$y].Split(",")[0]
                     $foreground_color = $this.full_particle_roster_colors[$x,$y].Split(",")[-1]
                     Write-Host "$symbol" -ForegroundColor $foreground_color -BackgroundColor $background_color -NoNewline
+                    $this.previous_full_particle_roster_colors[$x,$y] = $this.full_particle_roster_colors[$x,$y]
                 } else {
                     [Console]::SetCursorPosition($x,$y)
                     [Console]::ResetColor();
