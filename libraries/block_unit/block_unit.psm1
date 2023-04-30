@@ -62,7 +62,7 @@ class blockUnit
 
     [bool] do_something ([string] $action) {
 
-        $status = 0
+        [bool] $status = 0
 
         $this.block_unit_successfully_did_something = $false
 
