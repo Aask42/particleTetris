@@ -66,8 +66,6 @@ class blockUnit
 
     [bool] do_something ([string] $action) {
 
-        [bool] $status = 0
-
         $this.block_unit_successfully_did_something = $false
 
         # Validate this is the active piece
@@ -391,7 +389,7 @@ class blockUnit
                 }   
                 return $this.particle_dimensions 
             }
-            if($y_new -gt $this.max_dimensions.y[-1]) { 
+            if($y_new -gt $this.max_dimensions.y[-1] -1) { 
 
                 if($this.automated_move){
                     $this.move_fail_counter += 1
