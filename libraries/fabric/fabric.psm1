@@ -8,9 +8,10 @@ class particleFabric
     [int] $current_block_unit = 0
 
     [int64] $tick_count = 0
-    [int] $tick_speed = 1
+    [int] $tick_speed = 0
+    # In milliseconds
+    $speed_ranges = @(1000,900,800,700,600,500,400,300,200,100)
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-
 
     $particle_roster = $null
 
@@ -252,7 +253,13 @@ class particleFabric
         if($null -eq $this.prev_particle_roster_colors){
             $this.previous_full_particle_roster_colors = New-Object 'string[,]' $x_dimension_depth,$y_dimension_depth
         }
-        
+
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),0)
+        Write-Host "Particle Tetris"
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),1)
+        Write-Host "By: Aask"
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),3)
+        Write-Host "GameID: $($this.fabric_id)"
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),5)
         Write-Host "Score: $($this.score)"
         
@@ -283,9 +290,7 @@ class particleFabric
 
     [void] swap_active_block () {
 
-        if ( $this.fabric_block_units.Count -gt 1 ) {
-
-            $block_unit_id = "block_unit.$($this.current_block_unit)"
+        if ( $this.fabric_block_units.Count -gt 1) {
 
             [int] $temp_current_block_unit = $this.current_block_unit + 1
 
@@ -299,7 +304,7 @@ class particleFabric
 
             $this.fabric_block_units.$temp_block_unit_id.particle_roster = $this.inactive_particle_roster
 
-            if(!($this.fabric_block_units.$temp_block_unit_id.is_active)) {
+            if(!($this.fabric_block_units.$temp_block_unit_id.is_active -and !$this.fabric_block_units.$temp_block_unit_id.is_in_particle_roster())) {
                 $active_block_unit = $($this.fabric_block_units.Keys | Where-Object { $this.fabric_block_units.$_.is_active})
                 $toggle = $this.fabric_block_units.$temp_block_unit_id.toggle_activity_state()
                 if ( ($null -ne $active_block_unit) -and $toggle ) {
@@ -331,9 +336,6 @@ class particleFabric
     }
         [void] clear_complete_lines () {
 
-        # Fetch the depth of the x dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.x[-1]
-        $x_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 2)
-
         # Fetch the depth of the y dimension, and add TWO since our grid is actually starting @ position one,one and ending at max_dimensions.y[-1]
         $y_dimension_depth = $($this.fabric_block_units.'block_unit.0'.max_dimensions.y[-1] + 2)
 
@@ -344,7 +346,6 @@ class particleFabric
         $particles_to_move_down = @()
 
         while ($y -lt ($y_dimension_depth - 1)) {
-            $row_particle_count = 0
             if($($this.particle_roster.values.y -eq $y).Count -eq $this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1]){
                 $this.write_log("Removing line in row $y!!!")
                 $this.score += 10
@@ -435,174 +436,10 @@ function New-ParticleFabric()
     return $particle_fabric
 }
 
-function Test-ParticleDrop() {
-    $fabric = New-ParticleFabric
-
-    $block_unit_id = $fabric.generate_new_block_unit()
-
-    $fabric.draw_particles($fabric.fabric_block_units.$block_unit_id)
-
-    $run = $true
-    while($run) {
-        if($fabric.fabric_block_units.$block_unit_id.do_something("move_down") -eq 1) {
-            Clear-Host
-            $fabric.draw_particles($fabric.fabric_block_units.$block_unit_id)
-            Start-Sleep -Milliseconds 500
-        } else {
-            $run = $false
-        }
-    }
-}
-
-function Test-ParticleMovement() {
-
-    $fabric = New-ParticleFabric
-
-    $block_unit_id = $fabric.generate_new_block_unit()
-
-    $fabric.draw_particles($fabric.fabric_block_units.$block_unit_id)
-
-    $run = $true
-    $key = $null
-    while($run) {
-        # Check to see if a key was pressed
-        $action = $null
-
-        $key = [System.Console]::ReadKey()
-
-        switch($key.Key) {
-            # Left key
-            'LeftArrow' {
-                $msg = "LEFT key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "move_left"
-            }
-            # Up key
-            'UpArrow' {
-                $msg = "UP key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "move_up"
-            }
-            # Right key
-            'RightArrow' {
-                $msg = "RIGHT key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "move_right"
-            }
-            # Down key
-            'DownArrow' {
-                $msg = "DOWN key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "move_down"
-            }
-            # X key
-            'X' {
-                $msg = "X key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "rotate_right"
-            }
-            # Z key
-            'Z' {
-                $msg = "Z key was pressed!"
-                Write-Host $msg
-                $fabric.current_time = $fabric.write_log("$msg")
-                $action = "rotate_left"
-            }
-        }
-
-        if($null -ne $action) {
-
-            $fabric.fabric_block_units.$block_unit_id.do_something($action)
-
-            Clear-Host
-
-            $fabric.draw_particles($fabric.fabric_block_units.$block_unit_id)
-
-            $key = $null
-        }
-
-        # Start-Sleep -Milliseconds 1
-    }
-}
-
-function Test-ParticleStacking() {
-    $fabric = New-ParticleFabric
-
-    $block_unit_id = $fabric.generate_new_block_unit()
-
-    $fabric.draw_particle_roster()
-
-    $run = $true
-    $key = $null
-
-    $current_block_unit = 0
-
-    $block_unit_id = "block_unit.$current_block_unit"
-
-    while($run) {
-        # Check to see if a key was pressed
-        $action = $null
-
-        # If the key is not currently being held, detect key press
-        if ( ([console]::KeyAvailable) ) {
-
-            $key = [System.Console]::ReadKey()
-
-            # Clear our console
-            [System.Console]::Clear()
-
-            $fabric.current_time = $fabric.write_log("$key key was pressed!")
-
-            switch($key.Key) {
-                # Left key
-                'LeftArrow' { $action = "move_left" }
-                # Up key
-                'UpArrow' { $action = "move_up" }
-                # Right key
-                'RightArrow' { $action = "move_right" }
-                # Down key
-                'DownArrow' { $action = "move_down" }
-                # X key
-                'X' { $action = "rotate_left" }
-                # Z key
-                'Z' { $action = "rotate_right" }
-                'N' {
-                    $fabric.generate_new_block_unit()
-                    $fabric.draw_particle_roster()
-                }
-                "S" { $fabric.swap_active_block() }
-                "C" { $fabric.clear_complete_lines() }
-                'Escape' { $run = $false }
-            }
-
-            # Now act on the active block unit
-            if($null -ne $action) {
-
-                $block_unit_id = "block_unit.$($fabric.current_block_unit)"
-
-                $do_something = $fabric.fabric_block_units.$block_unit_id.do_something($action)
-
-            }
-            $fabric.draw_particle_roster()
-
-            #$Host.UI.RawUI.FlushInputBuffer()
-            # Start-Sleep -Milliseconds 1
-        }
-
-    }
-    return $fabric
-}
-
 function Play-Tetris() {
     $fabric = New-ParticleFabric
 
     $block_unit_id = $fabric.generate_new_block_unit()
-    $new_block = $true
     [System.Console]::Clear()
 
     $fabric.draw_particle_roster()
@@ -614,7 +451,6 @@ function Play-Tetris() {
 
     $block_unit_id = "block_unit.$current_block_unit"
 
-    $false_counter = 0
     while($run) {
         # Check to see if a key was pressed
         $action = $null
@@ -631,7 +467,9 @@ function Play-Tetris() {
 
             switch($key.Key) {
                 # Left key
-                'LeftArrow' { $action = "move_left" }
+                'LeftArrow' { 
+                    $action = "move_left" 
+                }
                 # Up key
                 'UpArrow' {
                     $action = "move_up"
@@ -644,12 +482,7 @@ function Play-Tetris() {
                 'X' { $action = "rotate_left" }
                 # Z key
                 'Z' { $action = "rotate_right" }
-                #'N' {
-                #    $fabric.generate_new_block_unit()
-                #    $fabric.draw_particle_roster()
-                #}
-                #"S" { $fabric.swap_active_block() }
-                #"C" { $fabric.clear_complete_lines() }
+ 
                 'Escape' { $run = $false }
             }
 
@@ -663,45 +496,52 @@ function Play-Tetris() {
                 if($action -eq "move_up"){
                     $fabric.generate_new_block_unit()
                     $fabric.swap_active_block()
-                    $new_block = $true
                 }
-
+                if($action -eq "move_down"){
+                    if(!$do_something){
+                        $fabric.generate_new_block_unit()
+                        $fabric.swap_active_block()
+                    }
+                }
             }
-            
-            
-            #$Host.UI.RawUI.FlushInputBuffer()
-            # Start-Sleep -Milliseconds 1
+
             $fabric.clear_complete_lines()
             $fabric.draw_particle_roster()
         }
 
-        # Make a function of time vs blocks dropped
-        if([int] $fabric.stopwatch.Elapsed.Milliseconds % 1000 -eq 0){
-            # Move the piece down every N ticks
+        $block_unit_id = "block_unit.$($fabric.current_block_unit)"
+        if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -gt 1){
+            [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
+            Write-Host "YOU JUST LOST THE GAME"
+            $run = $false
+        }
+
+        # Move the piece down every N ticks
+        elseif([int] $fabric.stopwatch.Elapsed.Milliseconds % $fabric.speed_ranges[$fabric.tick_speed] -eq 0){
             $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
+            $fabric.fabric_block_units.$block_unit_id.automated_move = $true
             $do_something = $fabric.fabric_block_units.$block_unit_id.do_something("move_down")
+            $fabric.fabric_block_units.$block_unit_id.automated_move = $false
 
             # Check to see if we are bottomed out
-            if(!$fabric.fabric_block_units.$block_unit_id.block_unit_successfully_did_something){
+            if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -eq 1){
                 $fabric.generate_new_block_unit()
                 $fabric.swap_active_block()
             }
-            
             
             [System.Console]::Clear()
             
             $fabric.clear_complete_lines()
             $fabric.draw_particle_roster()
             
-            if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -ge 2){
-                [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
-                Write-Host "YOU JUST LOST THE GAME"
-                $run = $false
+            $score_speed_throttle = [math]::floor($fabric.score/50)
+            if($score_speed_throttle -gt 9){$score_speed_throttle = 9}
+            elseif($fabric.tick_speed -ne $score_speed_throttle){
+                $fabric.tick_speed = $score_speed_throttle
             }
+            
         }
-
-        
 
     }
     return $fabric
