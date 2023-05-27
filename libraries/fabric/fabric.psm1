@@ -10,7 +10,7 @@ class particleFabric
     [int64] $tick_count = 0
     [int] $tick_speed = 0
     # In milliseconds
-    $speed_ranges = @(1000,900,800,700,600,500,400,300,200,100)
+    $speed_ranges = @(700,500,300,100,50)
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
     $particle_roster = $null
@@ -455,6 +455,13 @@ function Play-Tetris() {
         # Check to see if a key was pressed
         $action = $null
 
+        $block_unit_id = "block_unit.$($fabric.current_block_unit)"
+        if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -gt 1){
+            [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
+            Write-Host "YOU JUST LOST THE GAME"
+            $run = $false
+        }
+
         # If the key is not currently being held, detect key press
         if ( ([console]::KeyAvailable) ) {
 
@@ -509,12 +516,7 @@ function Play-Tetris() {
             $fabric.draw_particle_roster()
         }
 
-        $block_unit_id = "block_unit.$($fabric.current_block_unit)"
-        if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -gt 1){
-            [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
-            Write-Host "YOU JUST LOST THE GAME"
-            $run = $false
-        }
+        
 
         # Move the piece down every N ticks
         elseif([int] $fabric.stopwatch.Elapsed.Milliseconds % $fabric.speed_ranges[$fabric.tick_speed] -eq 0){
@@ -544,5 +546,5 @@ function Play-Tetris() {
         }
 
     }
-    return $fabric
+    # return $fabric
 }

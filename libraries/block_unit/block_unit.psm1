@@ -391,7 +391,7 @@ class blockUnit
                 }   
                 return $this.particle_dimensions 
             }
-            if($y_new -gt $this.max_dimensions.y[-1] - 1) { 
+            if($y_new -gt $this.max_dimensions.y[-1]) { 
 
                 if($this.automated_move){
                     $this.move_fail_counter += 1
