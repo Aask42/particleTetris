@@ -290,7 +290,7 @@ class particleFabric
 
     [void] swap_active_block () {
 
-        if ( $this.fabric_block_units.Count -gt 1 ) {
+        if ( $this.fabric_block_units.Count -gt 1) {
 
             [int] $temp_current_block_unit = $this.current_block_unit + 1
 
@@ -304,7 +304,7 @@ class particleFabric
 
             $this.fabric_block_units.$temp_block_unit_id.particle_roster = $this.inactive_particle_roster
 
-            if(!($this.fabric_block_units.$temp_block_unit_id.is_active)) {
+            if(!($this.fabric_block_units.$temp_block_unit_id.is_active -and !$this.fabric_block_units.$temp_block_unit_id.is_in_particle_roster())) {
                 $active_block_unit = $($this.fabric_block_units.Keys | Where-Object { $this.fabric_block_units.$_.is_active})
                 $toggle = $this.fabric_block_units.$temp_block_unit_id.toggle_activity_state()
                 if ( ($null -ne $active_block_unit) -and $toggle ) {
@@ -467,7 +467,9 @@ function Play-Tetris() {
 
             switch($key.Key) {
                 # Left key
-                'LeftArrow' { $action = "move_left" }
+                'LeftArrow' { 
+                    $action = "move_left" 
+                }
                 # Up key
                 'UpArrow' {
                     $action = "move_up"
@@ -495,24 +497,35 @@ function Play-Tetris() {
                     $fabric.generate_new_block_unit()
                     $fabric.swap_active_block()
                 }
-                if(!$do_something){
-                    $fabric.fabric_block_units.$block_unit_id.write_log("I'm sorry Dave, I can't let you do that")
+                if($action -eq "move_down"){
+                    if(!$do_something){
+                        $fabric.generate_new_block_unit()
+                        $fabric.swap_active_block()
+                    }
                 }
-
             }
 
             $fabric.clear_complete_lines()
             $fabric.draw_particle_roster()
         }
 
+        $block_unit_id = "block_unit.$($fabric.current_block_unit)"
+        if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -gt 1){
+            [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
+            Write-Host "YOU JUST LOST THE GAME"
+            $run = $false
+        }
+
         # Move the piece down every N ticks
-        if([int] $fabric.stopwatch.Elapsed.Milliseconds % $fabric.speed_ranges[$fabric.tick_speed] -eq 0){
+        elseif([int] $fabric.stopwatch.Elapsed.Milliseconds % $fabric.speed_ranges[$fabric.tick_speed] -eq 0){
             $block_unit_id = "block_unit.$($fabric.current_block_unit)"
 
+            $fabric.fabric_block_units.$block_unit_id.automated_move = $true
             $do_something = $fabric.fabric_block_units.$block_unit_id.do_something("move_down")
+            $fabric.fabric_block_units.$block_unit_id.automated_move = $false
 
             # Check to see if we are bottomed out
-            if(!$do_something){
+            if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -eq 1){
                 $fabric.generate_new_block_unit()
                 $fabric.swap_active_block()
             }
@@ -522,22 +535,13 @@ function Play-Tetris() {
             $fabric.clear_complete_lines()
             $fabric.draw_particle_roster()
             
-            if($fabric.fabric_block_units.$block_unit_id.move_fail_counter -ge 2){
-                [Console]::SetCursorPosition($($fabric.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),15)
-                Write-Host "YOU JUST LOST THE GAME"
-                $run = $false
-            }
-
             $score_speed_throttle = [math]::floor($fabric.score/50)
             if($score_speed_throttle -gt 9){$score_speed_throttle = 9}
             elseif($fabric.tick_speed -ne $score_speed_throttle){
                 $fabric.tick_speed = $score_speed_throttle
-
             }
             
         }
-
-        
 
     }
     return $fabric

@@ -8,6 +8,10 @@ class blockUnit
     $is_active = $false
     $on_deck = $true
 
+    [bool] $automated_move = $false
+
+    # Let's do a 7 block bag system. This will require passing the bag back out to fabric.psm1 in the Play-Tetris function
+
     # Set the max playground size
     $max_dimensions = @{
         "x" = (1..10)
@@ -23,7 +27,7 @@ class blockUnit
     $particle_dimensions = $null
     $particle_roster = $(New-Object 'switch[,]' $($this.max_dimensions.x[-1] + 2),$($this.max_dimensions.y[-1] + 2))
 
-    $block_unit_successfully_did_something = $false
+    [bool] $block_unit_successfully_did_something = $false
 
     $piece_initial_shape = @()
     [string] $block_unit_type = $null
@@ -79,36 +83,31 @@ class blockUnit
             "rotate_left" {
                 $this.write_log("Attempting to rotate $($this.block_unit) left...")
                 $this.rotate_block_unit("left")
-                $status = 1
             }
             "rotate_right" {
                 $this.write_log("Attempting to rotate $($this.block_unit) left...")
                 $this.rotate_block_unit("right")
-                $status = 1
             }
             "move_down" {
                 $this.write_log("Attempting to move $($this.block_unit) one spot down...")
                 $this.move_block_unit_vertical("move_down")
-                $status = 1
             }
             "move_up" {
                 $this.write_log("Attempting to move $($this.block_unit) one spot up...")
                 $this.hard_drop()
-                $status = 1
             }
             "move_right" {
                 $this.write_log("Attempting to move $($this.block_unit) right...")
                 $this.move_block_unit_horizontal("right")
-                $status = 1
             }
             "move_left" {
                 $this.write_log("Attempting to move $($this.block_unit) left...")
                 $this.move_block_unit_horizontal("left")
-                $status = 1
             }
         }
 
-        return $status
+        return $this.block_unit_successfully_did_something
+
     }
 
     hidden [void] set_block_unit_types () {
@@ -362,7 +361,7 @@ class blockUnit
         # Try to move this block unit vertically
         $this.particle_dimensions = $this.test_move_block_unit_vertical($direction)
 
-        return 1
+        return $this.block_unit_successfully_did_something
     }
 
     hidden [System.Management.Automation.PSObject] test_move_block_unit_vertical ($direction) {
@@ -384,8 +383,23 @@ class blockUnit
             $y_new = $y_curr + $number_of_spaces
 
             # Ensure we're within the bounds of our playground
-            if($y_new -lt 1) { return $this.particle_dimensions }
-            if($y_new -gt $this.max_dimensions.y[-1]) { return $this.particle_dimensions }
+            if($y_new -le 1) { 
+                if($this.automated_move){
+                    $this.move_fail_counter += 1
+                }else{
+                    $this.move_fail_counter = 0
+                }   
+                return $this.particle_dimensions 
+            }
+            if($y_new -gt $this.max_dimensions.y[-1] - 1) { 
+
+                if($this.automated_move){
+                    $this.move_fail_counter += 1
+                }else{
+                    $this.move_fail_counter = 0
+                }        
+                return $this.particle_dimensions 
+            }
 
             $coords = @{ "x"=$x_curr; "y"=$y_new }
 
@@ -449,65 +463,17 @@ class blockUnit
         return $new_particle_dimensions
     }
 
+    
+
     hidden [void] hard_drop () {
-        # Try to move this block unit vertically
-        $this.particle_dimensions = $this.test_hard_drop()
-    }
-
-    hidden [System.Management.Automation.PSObject] test_hard_drop () {
-
-        $new_particle_dimensions = @{}
 
         ## Figure out the max # of spaces we can move down.
 
-        $y_len = $this.particle_roster.GetLength(1) - 2
-
-        # Set max y particle coord
-        $distance = 0
-
+        $y_len = $this.particle_roster.GetLength(1) - 1
+        
         foreach ( $length in @( 1..$($y_len - 1) ) ) {
-            $allowed = $true
-            foreach ( $particle in $this.particle_dimensions.Keys ) {
-
-                $x = $this.particle_dimensions.$particle.x
-                $y = $this.particle_dimensions.$particle.y + $length
-                if( $this.particle_roster[$x,$y] ) {
-                    $allowed = $false
-                    break
-                }
-            }
-            if (!$allowed) {
-                $distance = $length - 1
-                break
-            }
+            $this.particle_dimensions = $this.test_move_block_unit_vertical("move_down")
         }
-
-        # This will transform the block vertically
-
-        $this.write_log("Checking to see if we can move $distance space vertically...")
-
-        foreach($particle in $this.particle_dimensions.Keys){
-            $y_curr = $this.particle_dimensions.$particle.y
-            $x_curr = $this.particle_dimensions.$particle.x
-
-            $y_new = $y_curr + $distance
-
-            # Ensure we're within the bounds of our playground
-            if($y_new -lt 1) { return $this.particle_dimensions }
-            if($y_new -gt $this.max_dimensions.y[-1]) { return $this.particle_dimensions }
-
-            $coords = @{ "x"=$x_curr; "y"=$y_new }
-
-            # Validate no collisions with other block_units
-             if ( $this.coords_in_particle_roster($coords) ) { return $this.particle_dimensions }
-
-            # Add to new particle_dimensions
-            $new_particle_dimensions += @{ "$particle" = $coords }
-        }
-
-        $this.block_unit_successfully_did_something = $true
-
-        return $new_particle_dimensions
     }
 
     [void] print_block_unit_dimensions () {
