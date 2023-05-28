@@ -8,8 +8,7 @@ This is meant to be the repo for a PowerShell implementation of Tetris which wil
 - Navigate to the proj folder on the PowerShell cli
 
 ```powershell
-Import-Module .\init.ps1
-Play-Tetris
+.\init.ps1
 ```
 
 - Note, ~~there is NO progression of time, and there are bugs on the line clear function~~
