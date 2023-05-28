@@ -13,10 +13,10 @@ Play-Tetris
 ```
 
 - Note, ~~there is NO progression of time, and there are bugs on the line clear function~~
-- Note: The progression of time is locked to 1 second per movement down. Will add levels later on. 
+- Note: The progression of time has a curve to it, have fun and most importantly:
 - Enjoy!
 
 ## Screen Shot Example
 
-![particleTetris](doc/particle_tetris_screen_shot.png "Example Screen Shot")
+<img width="425" alt="image" src="https://github.com/Aask42/particleTetris/assets/13933200/951e03ec-16d0-4ada-9bd8-886d6d1c330b">
 
