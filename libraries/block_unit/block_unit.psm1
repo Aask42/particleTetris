@@ -389,7 +389,7 @@ class blockUnit
                 }   
                 return $this.particle_dimensions 
             }
-            if($y_new -gt $this.max_dimensions.y[-1] -1) { 
+            if($y_new -gt $this.max_dimensions.y[-1]) { 
 
                 if($this.automated_move){
                     $this.move_fail_counter += 1
@@ -469,7 +469,7 @@ class blockUnit
 
         $y_len = $this.particle_roster.GetLength(1) - 1
         
-        foreach ( $length in @( 1..$($y_len - 1) ) ) {
+        foreach ( $length in @( 0..$($y_len - 1) ) ) {
             $this.particle_dimensions = $this.test_move_block_unit_vertical("move_down")
         }
     }
