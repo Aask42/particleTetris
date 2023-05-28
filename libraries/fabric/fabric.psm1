@@ -10,7 +10,7 @@ class particleFabric
     [int64] $tick_count = 0
     [int] $tick_speed = 0
     # In milliseconds
-    $speed_ranges = @(700,500,300,100,50)
+    $speed_ranges = @(1000,750,500,300,50)
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
     $particle_roster = $null
@@ -258,14 +258,25 @@ class particleFabric
         Write-Host "Particle Tetris"
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),1)
         Write-Host "By: Aask"
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),2)
+        Write-Host "Demo'd at LayerOne 2023"
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),3)
         Write-Host "GameID: $($this.fabric_id)"
         [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),5)
         Write-Host "Score: $($this.score)"
         
-        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),10)
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),12)
         $time_elapsed = [int]$this.stopwatch.Elapsed.Seconds
         Write-Host "Elapsed Time: $time_elapsed"
+        
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),7)
+        Write-Host "Rotate: X or Z"
+
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),8)
+        Write-Host "Move: Down Left Right"
+        [Console]::SetCursorPosition($($this.fabric_block_units.'block_unit.0'.max_dimensions.x[-1] + 5),9)
+        Write-Host "Hard Drop: Up"
+
         
         # Loop through all grid spots and print out colors according to values in our hash tables
         foreach ( $y in $(0..$($y_dimension_depth - 1))) {
@@ -546,5 +557,5 @@ function Play-Tetris() {
         }
 
     }
-    # return $fabric
+    return $fabric
 }

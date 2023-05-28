@@ -12,3 +12,4 @@ if(!$admin){
 
 # Load the initialization script
 Import-Module $PSScriptRoot\loader.psm1 -Force
+$x = Play-Tetris
