@@ -526,19 +526,30 @@ class blockUnit
 }
 
 function Copy-Object {
-    # http://stackoverflow.com/questions/7468707/deep-copy-a-dictionary-hashtable-in-powershell
-    [cmdletbinding()]
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [object]$InputObject
     )
 
-    $memStream = New-Object -TypeName IO.MemoryStream
-    $formatter = New-Object -TypeName Runtime.Serialization.Formatters.Binary.BinaryFormatter
-    $formatter.Serialize($memStream, $InputObject)
-    $memStream.Position = 0
-    $formatter.Deserialize($memStream)
+    # Create a temporary file for serialization
+    $tempFile = [System.IO.Path]::GetTempFileName()
+
+    try {
+        # Serialize the object to the temporary file
+        $InputObject | Export-Clixml -Path $tempFile
+
+        # Deserialize the object from the file
+        $copy = Import-Clixml -Path $tempFile
+    }
+    finally {
+        # Clean up the temporary file
+        Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+    }
+
+    return $copy
 }
+
 
 function New-BlockUnit($block_unit_id = $null)
 {
